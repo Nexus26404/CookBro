@@ -1,5 +1,7 @@
 # 🍳 CookBro - Smart Family Meal Planner
 
+[简体中文](README_zh.md) | English
+
 **CookBro** is a mobile-first, modern, and collaborative web application designed for families and shared households to coordinate daily meal choices, manage a shared recipe library, and automatically organize grocery shopping trips. 
 
 With a warm, cozy culinary aesthetic and responsive minimalist interface, CookBro simplifies the daily question of *"What should we eat today?"*.
