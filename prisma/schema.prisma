@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  uid          String   @id
+  displayName  String
+  email        String   @unique
+  passwordHash String?
+  photoURL     String?
+  groupId      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Recipe {
+  id          String   @id @default(cuid())
+  name        String
+  icon        String?
+  description String?
+  category    String
+  tags        String   @default("[]")
+  difficulty  String   @default("easy")
+  servings    Int      @default(2)
+  prepTime    Int      @default(10)
+  cookTime    Int      @default(20)
+  ingredients String   @default("[]")
+  utensils    String   @default("[]")
+  steps       String   @default("[]")
+  createdBy   String
+  groupId     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Group {
+  id         String   @id @default(cuid())
+  name       String
+  members    String   @default("[]")
+  inviteCode String   @unique
+  createdBy  String
+  createdAt  DateTime @default(now())
+}
+
+model Order {
+  id        String   @id
+  groupId   String
+  date      String
+  meals     String   @default("[]")
+  status    String   @default("ordering")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([groupId, date])
+}

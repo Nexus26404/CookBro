@@ -1,0 +1,403 @@
+.page {
+  min-height: 100vh;
+  background: var(--bg-primary);
+}
+
+.main {
+  padding-top: calc(var(--header-height) + var(--space-4));
+  padding-bottom: var(--space-12);
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding-left: var(--content-padding);
+  padding-right: var(--content-padding);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* Section */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: var(--bg-card);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow-xs);
+  animation: fadeInUp 0.3s both;
+}
+
+.section:nth-child(2) { animation-delay: 50ms; }
+.section:nth-child(3) { animation-delay: 100ms; }
+.section:nth-child(4) { animation-delay: 150ms; }
+.section:nth-child(5) { animation-delay: 200ms; }
+.section:nth-child(6) { animation-delay: 250ms; }
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.sectionTitle {
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-1);
+}
+
+/* Textarea */
+.textareaWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.textareaLabel {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--text-secondary);
+  padding-left: var(--space-1);
+}
+
+.textarea {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-input);
+  border: 1.5px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  resize: vertical;
+  min-height: 60px;
+  transition: all var(--transition-fast);
+}
+
+.textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+.textarea:focus {
+  border-color: var(--color-primary-400);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+}
+
+/* Field Group */
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.fieldLabel {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--text-secondary);
+}
+
+/* Chips */
+.chipGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.chip {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-default);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: var(--color-primary-300);
+  color: var(--color-primary-600);
+}
+
+.chipActive {
+  background: var(--color-primary-500);
+  color: white;
+  border-color: transparent;
+}
+
+.chipActive:hover {
+  color: white;
+  border-color: transparent;
+}
+
+/* Difficulty */
+.difficultyGroup {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.difficultyBtn {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  border: 1.5px solid var(--border-default);
+  transition: all var(--transition-fast);
+  text-align: center;
+}
+
+.diff-easy {
+  background: var(--color-success-light);
+  color: #15803d;
+  border-color: var(--color-success);
+}
+
+.diff-medium {
+  background: var(--color-warning-light);
+  color: #92400e;
+  border-color: var(--color-warning);
+}
+
+.diff-hard {
+  background: var(--color-danger-light);
+  color: #991b1b;
+  border-color: var(--color-danger);
+}
+
+/* Info Grid */
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+}
+
+.numberField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.numberField label {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  font-weight: var(--font-medium);
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-1);
+  background: var(--bg-primary);
+  border: 1.5px solid var(--border-default);
+  border-radius: var(--radius-lg);
+}
+
+.stepper button {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  font-size: var(--text-lg);
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.stepper button:hover {
+  background: var(--color-primary-50);
+  color: var(--color-primary-600);
+}
+
+.stepper span {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+}
+
+/* Ingredient Row */
+.ingredientRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.ingredientInput {
+  flex: 1;
+  height: 40px;
+  padding: 0 var(--space-3);
+  background: var(--bg-primary);
+  border: 1.5px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  transition: all var(--transition-fast);
+}
+
+.ingredientInput:focus {
+  border-color: var(--color-primary-400);
+}
+
+.ingredientInput::placeholder {
+  color: var(--text-tertiary);
+}
+
+.amountInput {
+  width: 80px;
+  height: 40px;
+  padding: 0 var(--space-3);
+  background: var(--bg-primary);
+  border: 1.5px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  transition: all var(--transition-fast);
+}
+
+.amountInput:focus {
+  border-color: var(--color-primary-400);
+}
+
+.amountInput::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Utensil Row */
+.utensilRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.utensilInput {
+  flex: 1;
+  height: 40px;
+  padding: 0 var(--space-3);
+  background: var(--bg-primary);
+  border: 1.5px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  transition: all var(--transition-fast);
+}
+
+.utensilInput:focus {
+  border-color: var(--color-primary-400);
+}
+
+.utensilInput::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Step Row */
+.stepRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+.stepNumber {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--color-primary-500), var(--color-primary-600));
+  color: white;
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
+  margin-top: var(--space-2);
+}
+
+.stepInput {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-primary);
+  border: 1.5px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  resize: vertical;
+  min-height: 40px;
+  transition: all var(--transition-fast);
+}
+
+.stepInput:focus {
+  border-color: var(--color-primary-400);
+}
+
+.stepInput::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Remove Button */
+.removeBtn {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  transition: all var(--transition-fast);
+}
+
+.removeBtn:hover:not(:disabled) {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+}
+
+.removeBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Submit */
+.submitArea {
+  padding: var(--space-4) 0;
+  animation: fadeInUp 0.3s 0.3s both;
+}
+
+/* Dark Mode */
+@media (prefers-color-scheme: dark) {
+  .section {
+    border-color: var(--border-default);
+  }
+
+  .chip {
+    background: var(--bg-elevated);
+  }
+
+  .difficultyBtn {
+    background: var(--bg-elevated);
+  }
+
+  .diff-easy {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+  }
+
+  .diff-medium {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+  }
+
+  .diff-hard {
+    background: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+  }
+
+  .removeBtn:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.15);
+  }
+}

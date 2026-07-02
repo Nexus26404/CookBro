@@ -1,0 +1,135 @@
+.page {
+  min-height: 100vh;
+  background: var(--bg-primary);
+}
+
+.main {
+  padding-top: calc(var(--header-height) + var(--space-4));
+  padding-bottom: calc(var(--bottom-nav-height) + var(--space-8));
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding-left: var(--content-padding);
+  padding-right: var(--content-padding);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* Loading & Error */
+.loading,
+.errorContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  gap: var(--space-4);
+  color: var(--text-secondary);
+}
+
+.loadingIcon {
+  font-size: 3rem;
+  animation: bounce 1s ease-in-out infinite;
+}
+
+.errorIcon {
+  font-size: 3rem;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+/* Orders List */
+.ordersList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.orderCard {
+  border: 1px solid var(--border-light);
+}
+
+.orderHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+.dateText {
+  font-size: var(--text-base);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+}
+
+/* Meals List */
+.mealsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.mealItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+}
+
+.mealItem:not(:last-child) {
+  border-bottom: 1px dashed var(--border-light);
+}
+
+.mealType {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+}
+
+.mealIcon {
+  font-size: 1.1em;
+}
+
+/* Recipes */
+.recipesList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-left: var(--space-6);
+}
+
+.recipeTag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-full);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.recipeEmoji {
+  font-size: var(--text-sm);
+}
+
+@media (prefers-color-scheme: dark) {
+  .orderCard {
+    border-color: var(--border-default);
+  }
+
+  .mealItem:not(:last-child) {
+    border-bottom-color: var(--border-default);
+  }
+
+  .recipeTag {
+    border-color: var(--border-default);
+  }
+}
