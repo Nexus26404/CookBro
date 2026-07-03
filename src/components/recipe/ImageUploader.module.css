@@ -1,0 +1,176 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: var(--space-2);
+}
+
+.thumb {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 2px solid var(--border-light);
+  background: var(--color-neutral-100);
+  group: thumb;
+}
+
+.thumbCover {
+  border-color: var(--color-primary-400);
+  box-shadow: 0 0 0 2px var(--color-primary-200);
+}
+
+.thumbImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.coverBadge {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  background: var(--color-primary-500);
+  color: white;
+  font-size: 10px;
+  font-weight: var(--font-bold);
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+  pointer-events: none;
+}
+
+.thumbActions {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.thumb:hover .thumbActions {
+  opacity: 1;
+}
+
+.thumbAction {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: var(--font-bold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast);
+}
+
+.thumbAction:hover {
+  background: white;
+}
+
+.thumbRemove:hover {
+  background: var(--color-danger);
+  color: white;
+}
+
+.dropzone {
+  border: 2px dashed var(--border-default);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  background: var(--color-neutral-50);
+  text-align: center;
+}
+
+.dropzone:hover {
+  border-color: var(--color-primary-400);
+  background: var(--color-primary-50);
+}
+
+.dragging {
+  border-color: var(--color-primary-500);
+  background: var(--color-primary-50);
+  transform: scale(1.01);
+}
+
+.dropIcon {
+  font-size: 2rem;
+  margin-bottom: var(--space-1);
+}
+
+.dropText {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+}
+
+.dropHint {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+.dropCount {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  background: var(--color-neutral-100);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  margin-top: var(--space-1);
+}
+
+.maxReached {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  text-align: center;
+  padding: var(--space-2);
+}
+
+.hiddenInput {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .thumb {
+    border-color: var(--border-default);
+    background: var(--color-neutral-800);
+  }
+
+  .thumbCover {
+    border-color: var(--color-primary-500);
+    box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.3);
+  }
+
+  .dropzone {
+    background: var(--bg-elevated);
+    border-color: var(--border-default);
+  }
+
+  .dropzone:hover {
+    background: rgba(249, 115, 22, 0.06);
+  }
+
+  .dragging {
+    background: rgba(249, 115, 22, 0.08);
+  }
+
+  .dropCount {
+    background: var(--color-neutral-800);
+  }
+}

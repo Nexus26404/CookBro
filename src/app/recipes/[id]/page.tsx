@@ -121,11 +121,28 @@ export default function RecipeDetailPage() {
       />
 
       <main className={styles.main}>
-        {/* Cover Info */}
-        <section className={styles.coverSection}>
-          <div className={styles.iconWrap}>
-            <span>{recipe.icon || '🍳'}</span>
-          </div>
+        {/* Photo Gallery or Emoji Cover */}
+        {recipe.images && recipe.images.length > 0 ? (
+          <section className={styles.gallerySection}>
+            <div className={styles.galleryScroll}>
+              {recipe.images.map((src, idx) => (
+                <div key={idx} className={`${styles.galleryItem} ${idx === 0 ? styles.galleryItemCover : ''}`}>
+                  <img src={src} alt={`${recipe.name} 图片 ${idx + 1}`} className={styles.galleryImg} />
+                  {idx === 0 && <span className={styles.galleryCoverBadge}>封面</span>}
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : (
+          <section className={styles.coverSection}>
+            <div className={styles.iconWrap}>
+              <span>{recipe.icon || '🍳'}</span>
+            </div>
+          </section>
+        )}
+
+        {/* Title area */}
+        <section className={styles.titleSection}>
           <div className={styles.titleArea}>
             <h2 className={styles.name}>{recipe.name}</h2>
             <div className={styles.badges}>

@@ -7,6 +7,7 @@ import { Header } from '@/components/layout/Header';
 import { Button, Input, Card } from '@/components/ui';
 import { RECIPE_CATEGORIES, RECIPE_TAGS, INGREDIENT_CATEGORIES } from '@/types';
 import type { Ingredient, CookingStep, Difficulty } from '@/types';
+import { ImageUploader } from '@/components/recipe/ImageUploader';
 import styles from './new-recipe.module.css';
 
 export default function NewRecipePage() {
@@ -23,6 +24,7 @@ export default function NewRecipePage() {
   const [prepTime, setPrepTime] = useState(10);
   const [cookTime, setCookTime] = useState(20);
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
+  const [images, setImages] = useState<string[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([
     { name: '', amount: '' },
   ]);
@@ -105,6 +107,7 @@ export default function NewRecipePage() {
         servings,
         prepTime,
         cookTime,
+        images,
         tags: Array.from(selectedTags),
         ingredients: ingredients.filter((i) => i.name.trim()),
         utensils: utensils.filter((u) => u.trim()),
@@ -164,6 +167,13 @@ export default function NewRecipePage() {
                 rows={2}
               />
             </div>
+          </section>
+
+          {/* 预览图 */}
+          <section className={styles.section}>
+            <h3 className={styles.sectionTitle}>📷 菜品预览图</h3>
+            <p className={styles.sectionHint}>最多 5 张，第一张为封面图；没有图片时使用 Emoji 代替</p>
+            <ImageUploader images={images} onChange={setImages} />
           </section>
 
           {/* 分类与标签 */}

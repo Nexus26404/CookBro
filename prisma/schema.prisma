@@ -21,6 +21,7 @@ model Recipe {
   id          String   @id @default(cuid())
   name        String
   icon        String?
+  images      String   @default("[]")
   description String?
   category    String
   tags        String   @default("[]")

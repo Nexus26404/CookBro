@@ -69,6 +69,12 @@
   color: var(--text-primary);
 }
 
+.sectionHint {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin-top: calc(0px - var(--space-1));
+}
+
 .row {
   display: flex;
   gap: var(--space-4);

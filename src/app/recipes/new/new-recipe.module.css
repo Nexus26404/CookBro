@@ -49,6 +49,13 @@
   margin-bottom: var(--space-1);
 }
 
+.sectionHint {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin-top: calc(0px - var(--space-1));
+  margin-bottom: var(--space-1);
+}
+
 /* Textarea */
 .textareaWrapper {
   display: flex;

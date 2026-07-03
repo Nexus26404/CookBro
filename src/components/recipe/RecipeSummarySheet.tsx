@@ -42,7 +42,11 @@ export function RecipeSummarySheet({
         
         <header className={styles.header}>
           <div className={styles.iconWrap}>
-            <span className={styles.icon}>{recipe.icon || '🍳'}</span>
+            {recipe.images?.[0] ? (
+              <img src={recipe.images[0]} alt={recipe.name} className={styles.coverImg} />
+            ) : (
+              <span className={styles.icon}>{recipe.icon || '🍳'}</span>
+            )}
           </div>
           <div className={styles.titleWrap}>
             <h3 className={styles.name}>{recipe.name}</h3>

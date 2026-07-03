@@ -8,6 +8,7 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import { Button, Input, Card } from '@/components/ui';
 import { RECIPE_CATEGORIES, RECIPE_TAGS, INGREDIENT_CATEGORIES } from '@/types';
 import type { Ingredient, CookingStep, Difficulty } from '@/types';
+import { ImageUploader } from '@/components/recipe/ImageUploader';
 import styles from './edit-recipe.module.css';
 
 export default function EditRecipePage() {
@@ -29,6 +30,7 @@ export default function EditRecipePage() {
   const [prepTime, setPrepTime] = useState(10);
   const [cookTime, setCookTime] = useState(20);
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
+  const [images, setImages] = useState<string[]>([]);
 
   // Dynamic lists
   const [ingredients, setIngredients] = useState<Ingredient[]>([{ name: '', amount: '', category: '肉类' }]);
@@ -59,6 +61,7 @@ export default function EditRecipePage() {
         setPrepTime(data.prepTime);
         setCookTime(data.cookTime);
         setSelectedTags(new Set(data.tags));
+        setImages(Array.isArray(data.images) ? data.images : []);
         setIngredients(data.ingredients.length > 0 ? data.ingredients : [{ name: '', amount: '', category: '肉类' }]);
         setUtensils(data.utensils.length > 0 ? data.utensils : ['']);
         setSteps(data.steps.length > 0 ? data.steps : [{ order: 1, description: '', duration: undefined }]);
@@ -148,6 +151,7 @@ export default function EditRecipePage() {
         servings,
         prepTime,
         cookTime,
+        images,
         tags: Array.from(selectedTags),
         ingredients: ingredients.filter((i) => i.name.trim()),
         utensils: utensils.filter((u) => u.trim()),
@@ -195,6 +199,13 @@ export default function EditRecipePage() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
+          </section>
+
+          {/* Images */}
+          <section className={styles.section}>
+            <h3 className={styles.sectionTitle}>菜品预览图</h3>
+            <p className={styles.sectionHint}>最多 5 张，第一张为封面图；没有图片时使用 Emoji 代替</p>
+            <ImageUploader images={images} onChange={setImages} />
           </section>
 
           {/* Classification */}

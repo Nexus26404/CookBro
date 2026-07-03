@@ -23,7 +23,7 @@ export interface Recipe {
   id: string;
   name: string;
   icon?: string;
-  coverImage?: string;
+  images: string[];
   description?: string;
   category: string;
   tags: string[];

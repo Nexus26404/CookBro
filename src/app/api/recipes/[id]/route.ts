@@ -5,6 +5,7 @@ function parseRecipe(r: Record<string, unknown>) {
   return {
     ...r,
     tags: JSON.parse(r.tags as string),
+    images: JSON.parse((r.images as string) || '[]'),
     ingredients: JSON.parse(r.ingredients as string),
     utensils: JSON.parse(r.utensils as string),
     steps: JSON.parse(r.steps as string),
@@ -57,6 +58,7 @@ export async function PUT(
       data: {
         name: body.name,
         icon: body.icon ?? null,
+        images: JSON.stringify(body.images ?? []),
         description: body.description ?? null,
         category: body.category,
         tags: JSON.stringify(body.tags ?? []),

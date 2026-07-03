@@ -11,6 +11,7 @@ import { useRecipes } from '@/hooks/useRecipes';
 import { useGroup, useTodayOrder } from '@/hooks/useGroup';
 import { useCart } from '@/context/CartContext';
 import { RecipeSummarySheet } from '@/components/recipe/RecipeSummarySheet';
+import { CartDrawer } from '@/components/recipe/CartDrawer';
 import type { MealType, Recipe } from '@/types';
 import styles from './page.module.css';
 
@@ -40,7 +41,7 @@ export default function HomePage() {
   const { recipes, loading: recipesLoading } = useRecipes();
   const { group, loading: groupLoading } = useGroup(user?.uid);
   const { order } = useTodayOrder(group?.id);
-  const { cart, toggleInCart, addToCart, clearCart } = useCart();
+  const { cart, toggleInCart, removeFromCart, addToCart, clearCart } = useCart();
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<MealTab>(getDefaultMeal);
@@ -49,6 +50,9 @@ export default function HomePage() {
   // Bottom Sheet state
   const [selectedRecipeForSheet, setSelectedRecipeForSheet] = useState<Recipe | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+
+  // Cart Drawer state
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -91,6 +95,7 @@ export default function HomePage() {
       });
       if (!res.ok) throw new Error('Failed');
       clearCart(activeTab);
+      setIsCartOpen(false);
     } catch (err) {
       console.error('Failed to confirm order:', err);
       alert('点菜失败，请重试');
@@ -190,6 +195,7 @@ export default function HomePage() {
                 const isSelected = activeCartItems.includes(recipe.id);
                 const isOrdered = orderedForTab.includes(recipe.id);
                 const diffInfo = DIFFICULTY_MAP[recipe.difficulty];
+                const coverSrc = recipe.images?.[0];
                 return (
                   <Card
                     key={recipe.id}
@@ -203,7 +209,11 @@ export default function HomePage() {
                   >
                     <div className={styles.menuCardInner} style={{ animationDelay: `${index * 60}ms` }}>
                       <div className={styles.menuCardIcon}>
-                        <span>{recipe.icon || '🍳'}</span>
+                        {coverSrc ? (
+                          <img src={coverSrc} alt={recipe.name} className={styles.menuCardImg} />
+                        ) : (
+                          <span>{recipe.icon || '🍳'}</span>
+                        )}
                         {isSelected && <span className={styles.checkMark}>✓</span>}
                         {isOrdered && !isSelected && <span className={styles.orderedMark}>✓</span>}
                       </div>
@@ -222,12 +232,20 @@ export default function HomePage() {
           )}
         </section>
 
-        {/* 已选菜品栏 */}
+        {/* 购物车悬浮按钮 / 已选菜品栏 */}
         {activeCartItems.length > 0 && (
           <div className={styles.selectedBar}>
-            <div className={styles.selectedInfo}>
+            <button
+              className={styles.cartBadgeBtn}
+              onClick={() => setIsCartOpen(true)}
+              aria-label="查看购物车"
+            >
+              <span className={styles.cartBadgeIcon}>🛒</span>
               <span className={styles.selectedCount}>已选 {activeCartItems.length} 道菜</span>
-            </div>
+              <svg className={styles.cartChevron} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M18 15l-6-6-6 6" />
+              </svg>
+            </button>
             <Button size="md" loading={confirming} onClick={handleConfirmOrder}>
               {group ? '确认点菜 👉' : '先创建家庭 →'}
             </Button>
@@ -250,6 +268,19 @@ export default function HomePage() {
             toggleInCart(activeTab, selectedRecipeForSheet.id);
           }
         }}
+      />
+
+      {/* Cart Drawer */}
+      <CartDrawer
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        mealType={activeTab}
+        cartItems={activeCartItems}
+        recipes={recipes}
+        onRemove={(recipeId) => removeFromCart(activeTab, recipeId)}
+        onConfirm={handleConfirmOrder}
+        confirming={confirming}
+        isGroupReady={!!group}
       />
     </div>
   );
