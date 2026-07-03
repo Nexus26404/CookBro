@@ -112,7 +112,11 @@ export default function RecipesPage() {
                 >
                   <div className={styles.recipeCardInner} style={{ animationDelay: `${index * 50}ms` }}>
                     <div className={styles.recipeIconWrap}>
-                      <span className={styles.recipeIcon}>{recipe.icon || '🍳'}</span>
+                      {recipe.images?.[0] ? (
+                        <img src={recipe.images[0]} alt={recipe.name} className={styles.recipeCardImg} />
+                      ) : (
+                        <span className={styles.recipeIcon}>{recipe.icon || '🍳'}</span>
+                      )}
                     </div>
                     <div className={styles.recipeInfo}>
                       <h3 className={styles.recipeName}>{recipe.name}</h3>

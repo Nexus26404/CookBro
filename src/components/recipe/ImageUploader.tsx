@@ -15,71 +15,56 @@ export function ImageUploader({ images, onChange }: ImageUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
-  const compressAndConvert = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      if (!file.type.startsWith('image/')) {
-        reject(new Error('只支持图片文件'));
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const MAX_DIM = 1200;
-          let { width, height } = img;
-          if (width > MAX_DIM || height > MAX_DIM) {
-            if (width > height) {
-              height = Math.round((height * MAX_DIM) / width);
-              width = MAX_DIM;
-            } else {
-              width = Math.round((width * MAX_DIM) / height);
-              height = MAX_DIM;
-            }
-          }
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d')!;
-          ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/webp', 0.82));
-        };
-        img.onerror = reject;
-        img.src = e.target!.result as string;
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
+  // Crop Editor State
+  const [editingIndex, setEditingIndex] = useState<number | null>(null); // -1 for new, >= 0 for existing
+  const [editingFileSrc, setEditingFileSrc] = useState<string | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<string[]>([]);
+  const [imgDims, setImgDims] = useState({ nw: 0, nh: 0 });
+  const [zoom, setZoom] = useState(1.0);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef({ x: 0, y: 0 });
 
   const handleFiles = async (files: FileList | File[]) => {
     const remaining = MAX_IMAGES - images.length;
     if (remaining <= 0) return;
 
     const toProcess = Array.from(files).slice(0, remaining);
-    const results: string[] = [];
+    const rawDataUrls: string[] = [];
+
+    const readFileAsDataUrl = (file: File): Promise<string> => {
+      return new Promise((resolve, reject) => {
+        if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+          alert(`"${file.name}" 超过 ${MAX_SIZE_MB}MB，已跳过`);
+          reject();
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target!.result as string);
+        reader.onerror = () => reject();
+        reader.readAsDataURL(file);
+      });
+    };
 
     for (const file of toProcess) {
-      if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-        alert(`"${file.name}" 超过 ${MAX_SIZE_MB}MB，已跳过`);
-        continue;
-      }
       try {
-        const dataUrl = await compressAndConvert(file);
-        results.push(dataUrl);
+        const src = await readFileAsDataUrl(file);
+        rawDataUrls.push(src);
       } catch {
-        alert(`"${file.name}" 无法读取，已跳过`);
+        // skipped or error
       }
     }
 
-    if (results.length > 0) {
-      onChange([...images, ...results]);
+    if (rawDataUrls.length > 0) {
+      setEditingIndex(-1);
+      setEditingFileSrc(rawDataUrls[0]);
+      setPendingFiles(rawDataUrls.slice(1));
     }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.length) {
       handleFiles(e.target.files);
-      // reset so same file can be re-selected
       e.target.value = '';
     }
   };
@@ -103,6 +88,116 @@ export function ImageUploader({ images, onChange }: ImageUploaderProps) {
     onChange(next);
   };
 
+  const startEditingExisting = (index: number) => {
+    setEditingIndex(index);
+    setEditingFileSrc(images[index]);
+    setPendingFiles([]);
+  };
+
+  // Crop Box Dimensions (Fixed 4:3 display ratio in UI)
+  const W_BOX = 320;
+  const H_BOX = 240;
+
+  const nw = imgDims.nw || 800;
+  const nh = imgDims.nh || 600;
+  const s0 = Math.max(W_BOX / nw, H_BOX / nh);
+  const bw = nw * s0;
+  const bh = nh * s0;
+  const left_base = W_BOX / 2 - bw / 2;
+  const top_base = H_BOX / 2 - bh / 2;
+
+  const handleImgLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    setImgDims({ nw: img.naturalWidth, nh: img.naturalHeight });
+    setZoom(1.0);
+    setPanOffset({ x: 0, y: 0 });
+  };
+
+  const handleDragStart = (clientX: number, clientY: number) => {
+    setIsDragging(true);
+    dragStart.current = {
+      x: clientX - panOffset.x,
+      y: clientY - panOffset.y,
+    };
+  };
+
+  const handleDragMove = (clientX: number, clientY: number) => {
+    if (!isDragging) return;
+    setPanOffset({
+      x: clientX - dragStart.current.x,
+      y: clientY - dragStart.current.y,
+    });
+  };
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
+  };
+
+  const saveCrop = () => {
+    if (!editingFileSrc) return;
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 800;
+      canvas.height = 600;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Draw background (white)
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, 800, 600);
+
+      // Compute geometry relative to the 800x600 target size
+      // scale = 800 / 320 = 2.5
+      const SCALE = 2.5;
+
+      const cx_box = left_base + bw / 2 + panOffset.x;
+      const cy_box = top_base + bh / 2 + panOffset.y;
+      const w_box = bw * zoom;
+      const h_box = bh * zoom;
+      const x_box = cx_box - w_box / 2;
+      const y_box = cy_box - h_box / 2;
+
+      const dx = x_box * SCALE;
+      const dy = y_box * SCALE;
+      const dw = w_box * SCALE;
+      const dh = h_box * SCALE;
+
+      ctx.drawImage(img, dx, dy, dw, dh);
+
+      const croppedBase64 = canvas.toDataURL('image/webp', 0.85);
+
+      if (editingIndex === -1) {
+        onChange([...images, croppedBase64]);
+      } else if (editingIndex !== null) {
+        const next = [...images];
+        next[editingIndex] = croppedBase64;
+        onChange(next);
+      }
+
+      if (editingIndex === -1 && pendingFiles.length > 0) {
+        setEditingFileSrc(pendingFiles[0]);
+        setPendingFiles(pendingFiles.slice(1));
+      } else {
+        setEditingFileSrc(null);
+        setEditingIndex(null);
+        setPendingFiles([]);
+      }
+    };
+    img.src = editingFileSrc;
+  };
+
+  const cancelCrop = () => {
+    if (editingIndex === -1 && pendingFiles.length > 0) {
+      setEditingFileSrc(pendingFiles[0]);
+      setPendingFiles(pendingFiles.slice(1));
+    } else {
+      setEditingFileSrc(null);
+      setEditingIndex(null);
+      setPendingFiles([]);
+    }
+  };
+
   return (
     <div className={styles.wrapper}>
       {/* Preview grid */}
@@ -123,6 +218,14 @@ export function ImageUploader({ images, onChange }: ImageUploaderProps) {
                     ←
                   </button>
                 )}
+                <button
+                  type="button"
+                  className={styles.thumbAction}
+                  onClick={() => startEditingExisting(index)}
+                  title="裁剪尺寸/缩放"
+                >
+                  ✂️
+                </button>
                 {index < images.length - 1 && (
                   <button
                     type="button"
@@ -181,6 +284,78 @@ export function ImageUploader({ images, onChange }: ImageUploaderProps) {
         className={styles.hiddenInput}
         onChange={handleInputChange}
       />
+
+      {/* Crop / Size Editor Modal */}
+      {editingFileSrc && (
+        <div className={styles.modalOverlay} onClick={cancelCrop}>
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <h3 className={styles.modalTitle}>
+              {editingIndex === -1 ? '裁剪并调整新图片' : '编辑图片尺寸'}
+            </h3>
+            <p className={styles.modalSubtitle}>拖拽移动图片，滑动下方滑杆调整缩放</p>
+
+            <div
+              className={styles.cropContainer}
+              style={{ width: W_BOX, height: H_BOX }}
+              onMouseDown={(e) => handleDragStart(e.clientX, e.clientY)}
+              onMouseMove={(e) => handleDragMove(e.clientX, e.clientY)}
+              onMouseUp={handleDragEnd}
+              onMouseLeave={handleDragEnd}
+              onTouchStart={(e) => {
+                if (e.touches.length === 1) {
+                  handleDragStart(e.touches[0].clientX, e.touches[0].clientY);
+                }
+              }}
+              onTouchMove={(e) => {
+                if (e.touches.length === 1) {
+                  handleDragMove(e.touches[0].clientX, e.touches[0].clientY);
+                }
+              }}
+              onTouchEnd={handleDragEnd}
+            >
+              <img
+                src={editingFileSrc}
+                alt="编辑中"
+                onLoad={handleImgLoad}
+                className={styles.cropImg}
+                draggable={false}
+                style={{
+                  width: bw,
+                  height: bh,
+                  left: left_base,
+                  top: top_base,
+                  transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})`,
+                  transformOrigin: 'center center',
+                }}
+              />
+              <div className={styles.cropOverlay} />
+            </div>
+
+            <div className={styles.controlRow}>
+              <span className={styles.zoomLabel}>🔍 缩放:</span>
+              <input
+                type="range"
+                min="1.0"
+                max="3.0"
+                step="0.05"
+                value={zoom}
+                onChange={(e) => setZoom(parseFloat(e.target.value))}
+                className={styles.zoomSlider}
+              />
+              <span className={styles.zoomVal}>{Math.round(zoom * 100)}%</span>
+            </div>
+
+            <div className={styles.btnRow}>
+              <button type="button" className={styles.cancelBtn} onClick={cancelCrop}>
+                取消
+              </button>
+              <button type="button" className={styles.saveBtn} onClick={saveCrop}>
+                确定裁剪并保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
