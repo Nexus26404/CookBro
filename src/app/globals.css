@@ -177,6 +177,32 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  -webkit-tap-highlight-color: transparent; /* Disable default Android/iOS blue tap highlight color */
+}
+
+/* === 文本选中重置 === */
+button,
+a,
+img,
+svg,
+[role="button"],
+.logo,
+.logoIcon,
+.tabIcon,
+.fallbackEmoji,
+.thumbEmoji,
+.cartBadgeIcon,
+.collapsedCartEmoji,
+.cartEmoji,
+.warnIcon,
+.alertIcon,
+.menuCardIcon,
+.itemThumb,
+.iconWrap,
+.checkMark,
+.orderedMark {
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 html {
