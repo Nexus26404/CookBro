@@ -10,6 +10,21 @@ import type { Ingredient, CookingStep, Difficulty } from '@/types';
 import { ImageUploader } from '@/components/recipe/ImageUploader';
 import styles from './new-recipe.module.css';
 
+const PRESET_UTENSILS = [
+  '炒锅',
+  '平底锅',
+  '砂锅',
+  '电饭煲',
+  '空气炸锅',
+  '蒸锅',
+  '高压锅',
+  '汤锅',
+  '烤箱',
+  '微波炉',
+  '破壁机',
+  '打蛋器',
+];
+
 export default function NewRecipePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -37,6 +52,7 @@ export default function NewRecipePage() {
     { name: '', amount: '' },
   ]);
   const [utensils, setUtensils] = useState<string[]>(['']);
+  const [activeUtensilDropdown, setActiveUtensilDropdown] = useState<number | null>(null);
   const [steps, setSteps] = useState<CookingStep[]>([
     { order: 1, description: '' },
   ]);
@@ -307,12 +323,38 @@ export default function NewRecipePage() {
             <h3 className={styles.sectionTitle}>🍳 厨具</h3>
             {utensils.map((utensil, index) => (
               <div key={index} className={styles.utensilRow}>
-                <input
-                  className={styles.utensilInput}
-                  placeholder="例如：炒锅"
-                  value={utensil}
-                  onChange={(e) => updateUtensil(index, e.target.value)}
-                />
+                <div className={styles.dropdownWrapper}>
+                  <input
+                    className={styles.utensilInput}
+                    placeholder="例如：炒锅"
+                    value={utensil}
+                    onChange={(e) => {
+                      updateUtensil(index, e.target.value);
+                      setActiveUtensilDropdown(index);
+                    }}
+                    onFocus={() => setActiveUtensilDropdown(index)}
+                  />
+                  {activeUtensilDropdown === index && (
+                    <div className={styles.dropdownMenu}>
+                      {PRESET_UTENSILS.filter(item => !utensil || item.includes(utensil)).map((item) => (
+                        <button
+                          key={item}
+                          type="button"
+                          className={styles.dropdownItem}
+                          onClick={() => {
+                            updateUtensil(index, item);
+                            setActiveUtensilDropdown(null);
+                          }}
+                        >
+                          {item}
+                        </button>
+                      ))}
+                      {PRESET_UTENSILS.filter(item => !utensil || item.includes(utensil)).length === 0 && (
+                        <div className={styles.dropdownNoResult}>输入以添加自定厨具...</div>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <button
                   type="button"
                   className={styles.removeBtn}
@@ -364,7 +406,6 @@ export default function NewRecipePage() {
           </div>
         </form>
       </main>
-      {/* Global Alert Modal */}
       <AlertModal
         isOpen={alertState.isOpen}
         onClose={() => setAlertState({ ...alertState, isOpen: false })}

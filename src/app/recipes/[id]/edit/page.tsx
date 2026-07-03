@@ -11,6 +11,21 @@ import type { Ingredient, CookingStep, Difficulty } from '@/types';
 import { ImageUploader } from '@/components/recipe/ImageUploader';
 import styles from './edit-recipe.module.css';
 
+const PRESET_UTENSILS = [
+  '炒锅',
+  '平底锅',
+  '砂锅',
+  '电饭煲',
+  '空气炸锅',
+  '蒸锅',
+  '高压锅',
+  '汤锅',
+  '烤箱',
+  '微波炉',
+  '破壁机',
+  '打蛋器',
+];
+
 export default function EditRecipePage() {
   const params = useParams();
   const router = useRouter();
@@ -39,6 +54,9 @@ export default function EditRecipePage() {
     description: '',
   });
 
+  const [showDiffDropdown, setShowDiffDropdown] = useState(false);
+  const [activeUtensilDropdown, setActiveUtensilDropdown] = useState<number | null>(null);
+  const [activeIngCategoryDropdown, setActiveIngCategoryDropdown] = useState<number | null>(null);
 
   // Dynamic lists
   const [ingredients, setIngredients] = useState<Ingredient[]>([{ name: '', amount: '', category: '肉类' }]);
@@ -88,6 +106,20 @@ export default function EditRecipePage() {
       router.push('/login');
     }
   }, [authLoading, user, router]);
+
+  useEffect(() => {
+    if (!showDiffDropdown && activeUtensilDropdown === null && activeIngCategoryDropdown === null) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest(`.${styles.dropdownWrapper}`)) {
+        setShowDiffDropdown(false);
+        setActiveUtensilDropdown(null);
+        setActiveIngCategoryDropdown(null);
+      }
+    };
+    document.addEventListener('click', handleOutsideClick);
+    return () => document.removeEventListener('click', handleOutsideClick);
+  }, [showDiffDropdown, activeUtensilDropdown, activeIngCategoryDropdown]);
 
   if (authLoading || !user || loading) {
     return (
@@ -244,15 +276,52 @@ export default function EditRecipePage() {
             <div className={styles.row}>
               <div className={styles.flex1}>
                 <label className={styles.label}>难度</label>
-                <select
-                  className={styles.select}
-                  value={difficulty}
-                  onChange={(e) => setDifficulty(e.target.value as Difficulty)}
-                >
-                  <option value="easy">简单</option>
-                  <option value="medium">中等</option>
-                  <option value="hard">困难</option>
-                </select>
+                <div className={styles.dropdownWrapper}>
+                  <button
+                    type="button"
+                    className={styles.dropdownBtn}
+                    onClick={() => setShowDiffDropdown(!showDiffDropdown)}
+                  >
+                    <span>
+                      {difficulty === 'easy' ? '😊 简单' : difficulty === 'medium' ? '💪 中等' : '🔥 困难'}
+                    </span>
+                    <span className={styles.dropdownArrow} style={{ transform: showDiffDropdown ? 'rotate(180deg)' : 'none' }}>▼</span>
+                  </button>
+                  {showDiffDropdown && (
+                    <div className={styles.dropdownMenu}>
+                      <button
+                        type="button"
+                        className={styles.dropdownItem}
+                        onClick={() => {
+                          setDifficulty('easy');
+                          setShowDiffDropdown(false);
+                        }}
+                      >
+                        😊 简单
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.dropdownItem}
+                        onClick={() => {
+                          setDifficulty('medium');
+                          setShowDiffDropdown(false);
+                        }}
+                      >
+                        💪 中等
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.dropdownItem}
+                        onClick={() => {
+                          setDifficulty('hard');
+                          setShowDiffDropdown(false);
+                        }}
+                      >
+                        🔥 困难
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
               <Input
                 type="number"
@@ -260,6 +329,7 @@ export default function EditRecipePage() {
                 value={servings}
                 onChange={(e) => setServings(Number(e.target.value))}
                 min={1}
+                className={styles.flex1}
               />
             </div>
             <div className={styles.row}>
@@ -292,40 +362,64 @@ export default function EditRecipePage() {
             <div className={styles.dynamicList}>
               {ingredients.map((ing, index) => (
                 <Card key={index} padding="sm" className={styles.dynamicItem}>
-                  <div className={styles.dynamicFields}>
-                    <input
-                      className={styles.plainInput}
-                      placeholder="食材名称，如：猪五花"
-                      value={ing.name}
-                      onChange={(e) => updateIngredient(index, 'name', e.target.value)}
-                    />
-                    <input
-                      className={styles.plainInput}
-                      placeholder="用量，如：500g"
-                      value={ing.amount}
-                      onChange={(e) => updateIngredient(index, 'amount', e.target.value)}
-                    />
-                    <select
-                      className={styles.plainSelect}
-                      value={ing.category || '其他'}
-                      onChange={(e) => updateIngredient(index, 'category', e.target.value)}
-                    >
-                      {INGREDIENT_CATEGORIES.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
+                  <div className={styles.dynamicRow}>
+                    <div className={styles.dynamicFields}>
+                      <input
+                        className={styles.plainInput}
+                        placeholder="食材名称，如：猪五花"
+                        value={ing.name}
+                        onChange={(e) => updateIngredient(index, 'name', e.target.value)}
+                      />
+                      <input
+                        className={styles.plainInput}
+                        placeholder="用量，如：500g"
+                        value={ing.amount}
+                        onChange={(e) => updateIngredient(index, 'amount', e.target.value)}
+                      />
+                      <div className={styles.dropdownWrapper}>
+                        <button
+                          type="button"
+                          className={styles.plainSelect}
+                          onClick={() => setActiveIngCategoryDropdown(activeIngCategoryDropdown === index ? null : index)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            textAlign: 'left'
+                          }}
+                        >
+                          <span>{ing.category || '其他'}</span>
+                          <span className={styles.dropdownArrow} style={{ transform: activeIngCategoryDropdown === index ? 'rotate(180deg)' : 'none' }}>▼</span>
+                        </button>
+                        {activeIngCategoryDropdown === index && (
+                          <div className={styles.dropdownMenu}>
+                            {INGREDIENT_CATEGORIES.map((c) => (
+                              <button
+                                key={c}
+                                type="button"
+                                className={styles.dropdownItem}
+                                onClick={() => {
+                                  updateIngredient(index, 'category', c);
+                                  setActiveIngCategoryDropdown(null);
+                                }}
+                              >
+                                {c}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {ingredients.length > 1 && (
+                      <button
+                        type="button"
+                        className={styles.removeBtnInline}
+                        onClick={() => removeIngredient(index)}
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
-                  {ingredients.length > 1 && (
-                    <button
-                      type="button"
-                      className={styles.removeBtn}
-                      onClick={() => removeIngredient(index)}
-                    >
-                      ✕
-                    </button>
-                  )}
                 </Card>
               ))}
             </div>
@@ -342,12 +436,38 @@ export default function EditRecipePage() {
             <div className={styles.dynamicList}>
               {utensils.map((ut, index) => (
                 <div key={index} className={styles.utensilRow}>
-                  <input
-                    className={styles.plainInputUnderline}
-                    placeholder="如：炒锅、平底锅"
-                    value={ut}
-                    onChange={(e) => updateUtensil(index, e.target.value)}
-                  />
+                  <div className={styles.dropdownWrapper}>
+                    <input
+                      className={styles.plainInputUnderline}
+                      placeholder="如：炒锅、平底锅"
+                      value={ut}
+                      onChange={(e) => {
+                        updateUtensil(index, e.target.value);
+                        setActiveUtensilDropdown(index);
+                      }}
+                      onFocus={() => setActiveUtensilDropdown(index)}
+                    />
+                    {activeUtensilDropdown === index && (
+                      <div className={styles.dropdownMenu}>
+                        {PRESET_UTENSILS.filter(item => !ut || item.includes(ut)).map((item) => (
+                          <button
+                            key={item}
+                            type="button"
+                            className={styles.dropdownItem}
+                            onClick={() => {
+                              updateUtensil(index, item);
+                              setActiveUtensilDropdown(null);
+                            }}
+                          >
+                            {item}
+                          </button>
+                        ))}
+                        {PRESET_UTENSILS.filter(item => !ut || item.includes(ut)).length === 0 && (
+                          <div className={styles.dropdownNoResult}>输入以添加自定厨具...</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   {utensils.length > 1 && (
                     <button
                       type="button"
@@ -434,7 +554,6 @@ export default function EditRecipePage() {
 
       <BottomNav />
 
-      {/* Global Alert Modal */}
       <AlertModal
         isOpen={alertState.isOpen}
         onClose={() => setAlertState({ ...alertState, isOpen: false })}
