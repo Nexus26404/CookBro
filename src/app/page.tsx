@@ -155,6 +155,21 @@ export default function HomePage() {
     });
   };
 
+  const handleRandomRecipe = () => {
+    const available = recipes.filter(
+      (r) => !activeCartItems.includes(r.id) && !orderedForTab.includes(r.id)
+    );
+
+    if (available.length === 0) {
+      alert('所有可选的菜品已加入购物车或已点！');
+      return;
+    }
+
+    const randomIndex = Math.floor(Math.random() * available.length);
+    const randomRecipe = available[randomIndex];
+    addToCart(activeTab, randomRecipe.id);
+  };
+
   return (
     <div className={styles.page}>
       <Header title="CookBro" />
@@ -207,7 +222,11 @@ export default function HomePage() {
         {/* 菜品列表 */}
         <section className={styles.menuSection}>
           <div className={styles.sectionHeader}>
-            <h3 className={styles.sectionTitle}>菜品模板</h3>
+            <div className={styles.headerLeftGroup}>
+              <Button variant="secondary" size="sm" onClick={handleRandomRecipe}>
+                🎲 随机点菜
+              </Button>
+            </div>
             <Button variant="ghost" size="sm" onClick={() => router.push('/recipes')}>
               查看全部 →
             </Button>

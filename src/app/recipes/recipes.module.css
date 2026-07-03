@@ -163,32 +163,34 @@
 
 /* Recipe List */
 .recipeList {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: var(--space-3);
 }
 
 .recipeCard {
   animation: fadeInUp 0.3s both;
+  overflow: hidden;
 }
 
 .recipeCardInner {
   display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-4);
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-3);
+  padding-bottom: var(--space-3);
   animation: fadeInUp 0.4s both;
 }
 
 .recipeIconWrap {
-  width: 60px;
-  height: 60px;
+  width: 100%;
+  height: 110px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, var(--color-primary-50), var(--color-accent-50));
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   overflow: hidden;
 }
 
@@ -199,19 +201,25 @@
 }
 
 .recipeIcon {
-  font-size: 2rem;
+  font-size: 2.2rem;
 }
 
 .recipeInfo {
-  flex: 1;
+  padding: 0 var(--space-3);
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .recipeName {
   font-size: var(--text-base);
-  font-weight: var(--font-semibold);
+  font-weight: var(--font-bold);
   color: var(--text-primary);
   margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .recipeDesc {
