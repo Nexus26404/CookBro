@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import useSWR from 'swr';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
@@ -12,7 +13,7 @@ import { useGroup, useTodayOrder } from '@/hooks/useGroup';
 import { useCart } from '@/context/CartContext';
 import { RecipeSummarySheet } from '@/components/recipe/RecipeSummarySheet';
 import { CartDrawer } from '@/components/recipe/CartDrawer';
-import type { MealType, Recipe } from '@/types';
+import type { MealType, Recipe, Order } from '@/types';
 import styles from './page.module.css';
 
 type MealTab = MealType;
@@ -36,6 +37,8 @@ function getDefaultMeal(): MealTab {
   return 'dinner';
 }
 
+const fetcher = (url: string) => fetch(url).then((r) => r.json());
+
 export default function HomePage() {
   const { user, loading: authLoading } = useAuth();
   const { recipes, loading: recipesLoading } = useRecipes();
@@ -43,6 +46,25 @@ export default function HomePage() {
   const { order } = useTodayOrder(group?.id);
   const { cart, toggleInCart, removeFromCart, addToCart, clearCart } = useCart();
   const router = useRouter();
+
+  // Fetch all group orders to calculate order counts
+  const { data: allOrders } = useSWR<Order[]>(
+    group?.id ? `/api/orders?groupId=${group.id}` : null,
+    fetcher
+  );
+
+  const orderCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    if (!allOrders) return counts;
+    for (const ord of allOrders) {
+      for (const meal of ord.meals) {
+        for (const recipeId of meal.recipes) {
+          counts[recipeId] = (counts[recipeId] || 0) + 1;
+        }
+      }
+    }
+    return counts;
+  }, [allOrders]);
 
   const [activeTab, setActiveTab] = useState<MealTab>(getDefaultMeal);
   const [confirming, setConfirming] = useState(false);
@@ -196,6 +218,7 @@ export default function HomePage() {
                 const isOrdered = orderedForTab.includes(recipe.id);
                 const diffInfo = DIFFICULTY_MAP[recipe.difficulty];
                 const coverSrc = recipe.images?.[0];
+                const count = orderCounts[recipe.id] || 0;
                 return (
                   <Card
                     key={recipe.id}
@@ -208,21 +231,34 @@ export default function HomePage() {
                     className={`${styles.menuCard} ${isSelected ? styles.menuCardSelected : ''} ${isOrdered ? styles.menuCardOrdered : ''}`}
                   >
                     <div className={styles.menuCardInner} style={{ animationDelay: `${index * 60}ms` }}>
+                      {/* Left: Thumbnail image or fallback emoji */}
                       <div className={styles.menuCardIcon}>
                         {coverSrc ? (
                           <img src={coverSrc} alt={recipe.name} className={styles.menuCardImg} />
                         ) : (
-                          <span>{recipe.icon || '🍳'}</span>
+                          <span className={styles.fallbackEmoji}>{recipe.icon || '🍳'}</span>
                         )}
                         {isSelected && <span className={styles.checkMark}>✓</span>}
                         {isOrdered && !isSelected && <span className={styles.orderedMark}>✓</span>}
                       </div>
+
+                      {/* Right: Info */}
                       <div className={styles.menuCardInfo}>
-                        <h4 className={styles.menuCardName}>{recipe.name}</h4>
-                        <div className={styles.menuCardMeta}>
-                          <Badge variant={diffInfo.color} size="sm">{diffInfo.label}</Badge>
-                          <span className={styles.cookTime}>{recipe.cookTime}分钟</span>
+                        <div className={styles.menuCardHeader}>
+                          <h4 className={styles.menuCardName}>{recipe.name}</h4>
+                          <Badge variant="primary" size="sm">{recipe.category}</Badge>
                         </div>
+                        
+                        <div className={styles.menuCardMeta}>
+                          <span className={styles.metaBadge}>🔥 已点 {count} 次</span>
+                          <span className={styles.metaText}>⏱️ {recipe.cookTime}分钟</span>
+                          <span className={styles.metaText}>•</span>
+                          <Badge variant={diffInfo.color} size="sm">{diffInfo.label}</Badge>
+                        </div>
+
+                        {recipe.description && (
+                          <p className={styles.menuCardDesc}>{recipe.description}</p>
+                        )}
                       </div>
                     </div>
                   </Card>
