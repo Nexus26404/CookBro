@@ -322,6 +322,9 @@ export function ImageUploader({ images, onChange }: ImageUploaderProps) {
               }}
               onTouchMove={(e) => {
                 if (e.touches.length === 1) {
+                  if (e.cancelable) {
+                    e.preventDefault();
+                  }
                   handleDragMove(e.touches[0].clientX, e.touches[0].clientY);
                 }
               }}
@@ -338,7 +341,7 @@ export function ImageUploader({ images, onChange }: ImageUploaderProps) {
                   height: bh,
                   left: left_base,
                   top: top_base,
-                  transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})`,
+                  transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0px) scale(${zoom})`,
                   transformOrigin: 'center center',
                 }}
               />
