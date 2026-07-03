@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
-import { Button, Input, Card } from '@/components/ui';
+import { Button, Input, Card, AlertModal } from '@/components/ui';
 import { RECIPE_CATEGORIES, RECIPE_TAGS, INGREDIENT_CATEGORIES } from '@/types';
 import type { Ingredient, CookingStep, Difficulty } from '@/types';
 import { ImageUploader } from '@/components/recipe/ImageUploader';
@@ -31,6 +31,14 @@ export default function EditRecipePage() {
   const [cookTime, setCookTime] = useState(20);
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
   const [images, setImages] = useState<string[]>([]);
+
+  // Alert popup state
+  const [alertState, setAlertState] = useState<{ isOpen: boolean; title: string; description: string; type?: 'error' | 'success' | 'warning' }>({
+    isOpen: false,
+    title: '',
+    description: '',
+  });
+
 
   // Dynamic lists
   const [ingredients, setIngredients] = useState<Ingredient[]>([{ name: '', amount: '', category: '肉类' }]);
@@ -171,7 +179,12 @@ export default function EditRecipePage() {
       router.push(`/recipes/${id}`);
     } catch (error) {
       console.error('Failed to save recipe:', error);
-      alert('保存失败，请重试');
+      setAlertState({
+        isOpen: true,
+        title: '保存失败',
+        description: '保存失败，请重试',
+        type: 'error',
+      });
     } finally {
       setSaving(false);
     }
@@ -420,6 +433,15 @@ export default function EditRecipePage() {
       </main>
 
       <BottomNav />
+
+      {/* Global Alert Modal */}
+      <AlertModal
+        isOpen={alertState.isOpen}
+        onClose={() => setAlertState({ ...alertState, isOpen: false })}
+        title={alertState.title}
+        description={alertState.description}
+        type={alertState.type}
+      />
     </div>
   );
 }

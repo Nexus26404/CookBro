@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
-import { Button, Input, Badge } from '@/components/ui';
+import { Button, Input, Badge, ConfirmModal, AlertModal } from '@/components/ui';
 import { useGroup } from '@/hooks/useGroup';
 import styles from './group.module.css';
 
@@ -23,6 +23,21 @@ export default function GroupPage() {
   const [copied, setCopied] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Modal alert/confirmation states
+  const [alertState, setAlertState] = useState<{ isOpen: boolean; title: string; description: string; type?: 'error' | 'success' | 'warning' }>({
+    isOpen: false,
+    title: '',
+    description: '',
+  });
+
+  const [kickTarget, setKickTarget] = useState<{ uid: string; name: string } | null>(null);
+  const [showKickConfirm1, setShowKickConfirm1] = useState(false);
+  const [showKickConfirm2, setShowKickConfirm2] = useState(false);
+
+  const [showDissolveConfirm1, setShowDissolveConfirm1] = useState(false);
+  const [showDissolveConfirm2, setShowDissolveConfirm2] = useState(false);
+
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -96,20 +111,14 @@ export default function GroupPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleKickMember = async (targetUid: string, name: string) => {
-    if (!user || !group) return;
-    const confirm1 = confirm(`确认要将家庭成员“${name}”移出吗？`);
-    if (!confirm1) return;
-    const confirm2 = confirm(`再次确认：移出后“${name}”将无法继续查看或在此家庭中点菜。是否真的移出？`);
-    if (!confirm2) return;
-
+  const executeKickMember = async (targetUid: string) => {
     setActionLoading(true);
     try {
       const res = await fetch('/api/groups/kick', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-uid': user.uid,
+          'x-user-uid': user?.uid || '',
         },
         body: JSON.stringify({ targetUid }),
       });
@@ -119,25 +128,30 @@ export default function GroupPage() {
       }
       await refetch();
     } catch (err: any) {
-      alert(err.message || '移出失败，请重试');
+      setAlertState({
+        isOpen: true,
+        title: '移出失败',
+        description: err.message || '移出失败，请重试',
+        type: 'error',
+      });
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleDissolveGroup = async () => {
+  const handleKickMember = (targetUid: string, name: string) => {
     if (!user || !group) return;
-    const confirm1 = confirm('确定要解散当前整个家庭吗？此操作将移除全部成员且无法恢复！');
-    if (!confirm1) return;
-    const confirm2 = confirm('再次确认：解散家庭将清空今日菜单及订单历史。确定要解散吗？');
-    if (!confirm2) return;
+    setKickTarget({ uid: targetUid, name });
+    setShowKickConfirm1(true);
+  };
 
+  const executeDissolveGroup = async () => {
     setActionLoading(true);
     try {
       const res = await fetch('/api/groups/dissolve', {
         method: 'POST',
         headers: {
-          'x-user-uid': user.uid,
+          'x-user-uid': user?.uid || '',
         },
       });
       if (!res.ok) {
@@ -146,10 +160,20 @@ export default function GroupPage() {
       }
       await refetch();
     } catch (err: any) {
-      alert(err.message || '解散失败，请重试');
+      setAlertState({
+        isOpen: true,
+        title: '解散失败',
+        description: err.message || '解散失败，请重试',
+        type: 'error',
+      });
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleDissolveGroup = () => {
+    if (!user || !group) return;
+    setShowDissolveConfirm1(true);
   };
 
   const handleSignOut = async () => {
@@ -371,6 +395,61 @@ export default function GroupPage() {
       </main>
 
       <BottomNav />
+
+      {/* Custom Confirmation Modals for Kick Member */}
+      <ConfirmModal
+        isOpen={showKickConfirm1}
+        onClose={() => {
+          setShowKickConfirm1(false);
+          setKickTarget(null);
+        }}
+        onConfirm={() => setShowKickConfirm2(true)}
+        title="移出家庭成员"
+        description={`确认要将家庭成员“${kickTarget?.name || ''}”移出吗？`}
+      />
+
+      <ConfirmModal
+        isOpen={showKickConfirm2}
+        onClose={() => {
+          setShowKickConfirm2(false);
+          setKickTarget(null);
+        }}
+        onConfirm={() => {
+          if (kickTarget) executeKickMember(kickTarget.uid);
+        }}
+        title="再次确认移出"
+        description={`再次确认：移出后“${kickTarget?.name || ''}”将无法继续查看或在此家庭中点菜。是否真的移出？`}
+        variant="danger"
+        confirmText="真的移出"
+      />
+
+      {/* Custom Confirmation Modals for Dissolve Group */}
+      <ConfirmModal
+        isOpen={showDissolveConfirm1}
+        onClose={() => setShowDissolveConfirm1(false)}
+        onConfirm={() => setShowDissolveConfirm2(true)}
+        title="解散家庭"
+        description="确定要解散当前整个家庭吗？此操作将移除全部成员且无法恢复！"
+      />
+
+      <ConfirmModal
+        isOpen={showDissolveConfirm2}
+        onClose={() => setShowDissolveConfirm2(false)}
+        onConfirm={executeDissolveGroup}
+        title="再次确认解散"
+        description="再次确认：解散家庭将清空今日菜单及订单历史。确定要解散吗？"
+        variant="danger"
+        confirmText="确定解散"
+      />
+
+      {/* Global Alert Modal */}
+      <AlertModal
+        isOpen={alertState.isOpen}
+        onClose={() => setAlertState({ ...alertState, isOpen: false })}
+        title={alertState.title}
+        description={alertState.description}
+        type={alertState.type}
+      />
     </div>
   );
 }

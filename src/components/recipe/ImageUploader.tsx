@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { AlertModal } from '../ui/Modal';
 import styles from './ImageUploader.module.css';
 
 const MAX_IMAGES = 5;
@@ -14,6 +15,14 @@ interface ImageUploaderProps {
 export function ImageUploader({ images, onChange }: ImageUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+
+  // Alert modal state
+  const [alertState, setAlertState] = useState<{ isOpen: boolean; title: string; description: string; type?: 'error' | 'success' | 'warning' }>({
+    isOpen: false,
+    title: '',
+    description: '',
+  });
+
 
   // Crop Editor State
   const [editingIndex, setEditingIndex] = useState<number | null>(null); // -1 for new, >= 0 for existing
@@ -35,7 +44,12 @@ export function ImageUploader({ images, onChange }: ImageUploaderProps) {
     const readFileAsDataUrl = (file: File): Promise<string> => {
       return new Promise((resolve, reject) => {
         if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-          alert(`"${file.name}" 超过 ${MAX_SIZE_MB}MB，已跳过`);
+          setAlertState({
+            isOpen: true,
+            title: '文件过大',
+            description: `"${file.name}" 超过限制的 ${MAX_SIZE_MB}MB，已自动跳过`,
+            type: 'warning',
+          });
           reject();
           return;
         }
@@ -356,6 +370,14 @@ export function ImageUploader({ images, onChange }: ImageUploaderProps) {
           </div>
         </div>
       )}
+      {/* Global Alert Modal */}
+      <AlertModal
+        isOpen={alertState.isOpen}
+        onClose={() => setAlertState({ ...alertState, isOpen: false })}
+        title={alertState.title}
+        description={alertState.description}
+        type={alertState.type}
+      />
     </div>
   );
 }

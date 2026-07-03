@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
-import { Button, Badge, Card } from '@/components/ui';
+import { Button, Badge, Card, ConfirmModal, AlertModal } from '@/components/ui';
 import type { Recipe } from '@/types';
 import styles from './recipe-detail.module.css';
 
@@ -22,6 +22,15 @@ export default function RecipeDetailPage() {
   const id = params.id as string;
   const { user, loading: authLoading } = useAuth();
   const searchParams = useSearchParams();
+
+  // Modal alert/confirmation states
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [alertState, setAlertState] = useState<{ isOpen: boolean; title: string; description: string; type?: 'error' | 'success' | 'warning' }>({
+    isOpen: false,
+    title: '',
+    description: '',
+  });
+
 
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [loading, setLoading] = useState(true);
@@ -78,8 +87,7 @@ export default function RecipeDetailPage() {
   const canModify = !fromOrder && (recipe.createdBy === user?.uid || recipe.createdBy === 'system');
   const diffInfo = DIFFICULTY_MAP[recipe.difficulty];
 
-  const handleDelete = async () => {
-    if (!confirm('确定要删除这道菜谱吗？此操作无法撤销。')) return;
+  const executeDelete = async () => {
     setDeleting(true);
     try {
       const res = await fetch(`/api/recipes/${id}`, {
@@ -92,9 +100,18 @@ export default function RecipeDetailPage() {
       router.push('/recipes');
     } catch (err) {
       console.error(err);
-      alert('删除失败，请重试');
+      setAlertState({
+        isOpen: true,
+        title: '删除失败',
+        description: '删除失败，请重试',
+        type: 'error',
+      });
       setDeleting(false);
     }
+  };
+
+  const handleDelete = () => {
+    setShowDeleteConfirm(true);
   };
 
   return (
@@ -221,6 +238,25 @@ export default function RecipeDetailPage() {
       </main>
 
       <BottomNav />
+
+      {/* Reusable Modals */}
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={executeDelete}
+        title="删除菜谱"
+        description="确定要删除这道菜谱吗？此操作无法撤销。"
+        variant="danger"
+        confirmText="确定删除"
+      />
+
+      <AlertModal
+        isOpen={alertState.isOpen}
+        onClose={() => setAlertState({ ...alertState, isOpen: false })}
+        title={alertState.title}
+        description={alertState.description}
+        type={alertState.type}
+      />
     </div>
   );
 }

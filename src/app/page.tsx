@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { EmptyState } from '@/components/layout/EmptyState';
-import { Button, Badge, Card } from '@/components/ui';
+import { Button, Badge, Card, AlertModal } from '@/components/ui';
 import { useRecipes } from '@/hooks/useRecipes';
 import { useGroup, useTodayOrder } from '@/hooks/useGroup';
 import { useCart } from '@/context/CartContext';
@@ -78,6 +78,14 @@ export default function HomePage() {
 
   const activeCartItems = cart[activeTab] || [];
 
+  // Custom alert popup state
+  const [alertState, setAlertState] = useState<{ isOpen: boolean; title: string; description: string; type?: 'error' | 'success' | 'warning' }>({
+    isOpen: false,
+    title: '',
+    description: '',
+  });
+
+
   // Collapsible toolbar state
   const [isBarCollapsed, setIsBarCollapsed] = useState(false);
 
@@ -133,7 +141,12 @@ export default function HomePage() {
       setIsCartOpen(false);
     } catch (err) {
       console.error('Failed to confirm order:', err);
-      alert('点菜失败，请重试');
+      setAlertState({
+        isOpen: true,
+        title: '点菜失败',
+        description: '点菜失败，请重试',
+        type: 'error',
+      });
     } finally {
       setConfirming(false);
     }
@@ -161,7 +174,12 @@ export default function HomePage() {
     );
 
     if (available.length === 0) {
-      alert('所有可选的菜品已加入购物车或已点！');
+      setAlertState({
+        isOpen: true,
+        title: '提示',
+        description: '当前时段所有可选的菜品已在购物车或已点！',
+        type: 'warning',
+      });
       return;
     }
 
@@ -378,6 +396,15 @@ export default function HomePage() {
         onConfirm={handleConfirmOrder}
         confirming={confirming}
         isGroupReady={!!group}
+      />
+
+      {/* Global Alert Modal */}
+      <AlertModal
+        isOpen={alertState.isOpen}
+        onClose={() => setAlertState({ ...alertState, isOpen: false })}
+        title={alertState.title}
+        description={alertState.description}
+        type={alertState.type}
       />
     </div>
   );
