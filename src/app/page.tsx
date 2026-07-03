@@ -76,6 +76,19 @@ export default function HomePage() {
   // Cart Drawer state
   const [isCartOpen, setIsCartOpen] = useState(false);
 
+  const activeCartItems = cart[activeTab] || [];
+
+  // Collapsible toolbar state
+  const [isBarCollapsed, setIsBarCollapsed] = useState(false);
+
+  // Auto-expand tool bar when item count changes
+  useEffect(() => {
+    if (activeCartItems.length > 0) {
+      setIsBarCollapsed(false);
+    }
+  }, [activeCartItems.length]);
+
+
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login');
@@ -91,7 +104,7 @@ export default function HomePage() {
     );
   }
 
-  const activeCartItems = cart[activeTab] || [];
+
 
   const handleConfirmOrder = async () => {
     if (!user || activeCartItems.length === 0) return;
@@ -233,11 +246,13 @@ export default function HomePage() {
                     <div className={styles.menuCardInner} style={{ animationDelay: `${index * 60}ms` }}>
                       {/* Left: Thumbnail image or fallback emoji */}
                       <div className={styles.menuCardIcon}>
-                        {coverSrc ? (
-                          <img src={coverSrc} alt={recipe.name} className={styles.menuCardImg} />
-                        ) : (
-                          <span className={styles.fallbackEmoji}>{recipe.icon || '🍳'}</span>
-                        )}
+                        <div className={styles.menuCardImgWrapper}>
+                          {coverSrc ? (
+                            <img src={coverSrc} alt={recipe.name} className={styles.menuCardImg} />
+                          ) : (
+                            <span className={styles.fallbackEmoji}>{recipe.icon || '🍳'}</span>
+                          )}
+                        </div>
                         {isSelected && <span className={styles.checkMark}>✓</span>}
                         {isOrdered && !isSelected && <span className={styles.orderedMark}>✓</span>}
                       </div>
@@ -270,22 +285,48 @@ export default function HomePage() {
 
         {/* 购物车悬浮按钮 / 已选菜品栏 */}
         {activeCartItems.length > 0 && (
-          <div className={styles.selectedBar}>
+          isBarCollapsed ? (
             <button
-              className={styles.cartBadgeBtn}
-              onClick={() => setIsCartOpen(true)}
-              aria-label="查看购物车"
+              type="button"
+              className={styles.collapsedCartBtn}
+              onClick={() => setIsBarCollapsed(false)}
+              aria-label="展开选菜工具栏"
             >
-              <span className={styles.cartBadgeIcon}>🛒</span>
-              <span className={styles.selectedCount}>已选 {activeCartItems.length} 道菜</span>
-              <svg className={styles.cartChevron} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <path d="M18 15l-6-6-6 6" />
-              </svg>
+              <span className={styles.collapsedCartEmoji}>🛒</span>
+              <span className={styles.collapsedCartBadge}>{activeCartItems.length}</span>
             </button>
-            <Button size="md" loading={confirming} onClick={handleConfirmOrder}>
-              {group ? '确认点菜 👉' : '先创建家庭 →'}
-            </Button>
-          </div>
+          ) : (
+            <div className={styles.selectedBar}>
+              <button
+                className={styles.cartBadgeBtn}
+                onClick={() => setIsCartOpen(true)}
+                aria-label="查看购物车"
+              >
+                <span className={styles.cartBadgeIcon}>🛒</span>
+                <span className={styles.selectedCount}>已选 {activeCartItems.length} 道菜</span>
+                <svg className={styles.cartChevron} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <path d="M18 15l-6-6-6 6" />
+                </svg>
+              </button>
+              <div className={styles.barRightActions}>
+                <button
+                  type="button"
+                  className={styles.minimizeBarBtn}
+                  onClick={() => setIsBarCollapsed(true)}
+                  title="收起工具栏"
+                  aria-label="收起"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                    <polyline points="4 14 10 14 10 20" />
+                    <polyline points="20 10 14 10 14 4" />
+                  </svg>
+                </button>
+                <Button size="md" loading={confirming} onClick={handleConfirmOrder}>
+                  {group ? '确认点菜 👉' : '先创建家庭 →'}
+                </Button>
+              </div>
+            </div>
+          )
         )}
       </main>
 
@@ -314,6 +355,7 @@ export default function HomePage() {
         cartItems={activeCartItems}
         recipes={recipes}
         onRemove={(recipeId) => removeFromCart(activeTab, recipeId)}
+        onClear={() => clearCart(activeTab)}
         onConfirm={handleConfirmOrder}
         confirming={confirming}
         isGroupReady={!!group}

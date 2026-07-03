@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { MealType, Recipe } from '@/types';
 import { Button } from '@/components/ui';
 import styles from './CartDrawer.module.css';
@@ -18,6 +18,7 @@ interface CartDrawerProps {
   cartItems: string[];
   recipes: Recipe[];
   onRemove: (recipeId: string) => void;
+  onClear?: () => void;
   onConfirm: () => void;
   confirming?: boolean;
   isGroupReady: boolean;
@@ -30,11 +31,13 @@ export function CartDrawer({
   cartItems,
   recipes,
   onRemove,
+  onClear,
   onConfirm,
   confirming = false,
   isGroupReady,
 }: CartDrawerProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
+  const [showConfirmClear, setShowConfirmClear] = useState(false);
 
   // Lock body scroll when drawer is open
   useEffect(() => {
@@ -85,12 +88,23 @@ export function CartDrawer({
               </p>
             </div>
           </div>
-          <button className={styles.closeBtn} onClick={onClose} aria-label="关闭">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+          <div className={styles.headerRight}>
+            {cartItems.length > 0 && onClear && (
+              <button
+                type="button"
+                className={styles.clearCartBtn}
+                onClick={() => setShowConfirmClear(true)}
+              >
+                清空
+              </button>
+            )}
+            <button className={styles.closeBtn} onClick={onClose} aria-label="关闭">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Empty state */}
@@ -156,6 +170,35 @@ export function CartDrawer({
               </Button>
             </div>
           </>
+        )}
+        {/* Confirmation Modal overlay inside Drawer */}
+        {showConfirmClear && (
+          <div className={styles.clearConfirmOverlay}>
+            <div className={styles.clearConfirmDialog}>
+              <span className={styles.warnIcon}>⚠️</span>
+              <h4 className={styles.confirmTitle}>确定清空购物车吗？</h4>
+              <p className={styles.confirmDesc}>此操作将移除当前时段已选择的所有菜品。</p>
+              <div className={styles.confirmBtnGroup}>
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmClear(false)}
+                  className={styles.confirmCancel}
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onClear) onClear();
+                    setShowConfirmClear(false);
+                  }}
+                  className={styles.confirmYes}
+                >
+                  确定清空
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </>
