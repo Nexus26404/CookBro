@@ -11,8 +11,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
-import * as AuthSession from 'expo-auth-session';
+import * as Linking from 'expo-linking';
 import { theme } from '../../theme';
 import { Card, Button, Input } from '../ui';
 import { apiFetch, saveSession, getApiBaseUrl, setApiBaseUrl, UserSession } from '../../lib/api';
@@ -30,47 +29,57 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [serverIp, setServerIp] = useState('');
-  const [googleClientId, setGoogleClientId] = useState(process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '');
-  
-  const [redirectUri, setRedirectUri] = useState('https://auth.expo.io/@anonymous/mobile');
   
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Initialize Server IP and Google Client ID from storage
+  // Initialize Server IP from API client settings
   useEffect(() => {
     setServerIp(getApiBaseUrl());
-
-    AsyncStorage.getItem('cookbro_google_client_id').then(id => {
-      if (id) {
-        setGoogleClientId(id);
-      }
-    });
   }, []);
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    webClientId: googleClientId || undefined,
-    androidClientId: googleClientId || undefined,
-    iosClientId: googleClientId || undefined,
-    redirectUri: redirectUri || undefined,
-  });
-
-  // Listen to Google login response
+  // Listen to deep linking scheme callback redirects (e.g. cookbro://auth?uid=...)
   useEffect(() => {
-    if (response?.type === 'success' && response.authentication) {
-      const accessToken = response.authentication.accessToken;
-      handleGoogleLoginSuccess(accessToken);
-    }
-  }, [response]);
+    const handleDeepLink = (event: { url: string }) => {
+      console.log('App received deep link:', event.url);
+      
+      const parsed = Linking.parse(event.url);
+      const params = parsed.queryParams;
+      
+      // Check if deep link matches our auth callback target
+      if (event.url.includes('cookbro://auth') && params && params.uid) {
+        const userSession: UserSession = {
+          uid: params.uid as string,
+          email: (params.email as string) || '',
+          displayName: (params.displayName as string) || '',
+          photoURL: (params.photoURL as string) || '',
+        };
+        
+        saveSession(userSession).then(() => {
+          Alert.alert('欢迎', '已成功与电脑端授权同步！');
+          onLoginSuccess(userSession);
+        });
+      }
+    };
+
+    // Add deep linking listener
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+
+    // Parse initial URL if the app was opened from a deep link
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        handleDeepLink({ url });
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [onLoginSuccess]);
 
   const handleIpChange = async (val: string) => {
     setServerIp(val);
     await setApiBaseUrl(val);
-  };
-
-  const handleGoogleClientIdChange = async (id: string) => {
-    setGoogleClientId(id);
-    await AsyncStorage.setItem('cookbro_google_client_id', id);
   };
 
   const validate = () => {
@@ -130,48 +139,21 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     }
   };
 
-  const handleGoogleLoginSuccess = async (token: string) => {
+  const handleGoogleLogin = async () => {
     setLoading(true);
     setError('');
-    
     try {
-      // Fetch user profile from Google UserInfo API
-      const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      // Direct Web Authentication URL (Next.js server landing page for mobile auth)
+      const baseServerUrl = serverIp.replace(/\/api$/, '').replace(/\/$/, '');
+      const webAuthUrl = `${baseServerUrl}/auth/mobile`;
       
-      const profile = await res.json();
+      console.log('Opening WebAuth portal:', webAuthUrl);
       
-      if (!res.ok) {
-        throw new Error(profile.error_description || '获取谷歌用户信息失败');
-      }
-
-      // Map to standard UserSession
-      const userSession: UserSession = {
-        uid: `google-${profile.sub}`,
-        email: profile.email,
-        displayName: profile.name,
-        photoURL: profile.picture
-      };
-
-      // Sync the user to the Next.js database (corresponds to syncUserToDb on web)
-      const syncRes = await apiFetch('/api/users/me', {
-        method: 'POST',
-        body: JSON.stringify(userSession)
-      });
-
-      if (!syncRes.ok) {
-        console.warn('Failed to sync Google user to database');
-      }
-
-      // Save user session in local AsyncStorage
-      await saveSession(userSession);
-      
-      Alert.alert('欢迎', '谷歌登录成功！');
-      onLoginSuccess(userSession);
+      // Open WebBrowser session pointing to the server mobile login page
+      await WebBrowser.openAuthSessionAsync(webAuthUrl, 'cookbro://');
     } catch (err: any) {
-      console.error('Google login processing error:', err);
-      setError(err.message || '谷歌账户授权并同步失败');
+      console.error('Google portal open error:', err);
+      setError('无法打开网页登录端口，请检查您的服务器 IP 配置');
     } finally {
       setLoading(false);
     }
@@ -272,17 +254,11 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             <Button
               variant="secondary"
               fullWidth
-              onPress={() => {
-                if (!googleClientId) {
-                  Alert.alert('提示', '请先在下方的“开发服务器配置”中填写 Google Web Client ID');
-                  return;
-                }
-                promptAsync();
-              }}
+              onPress={handleGoogleLogin}
               disabled={loading}
               style={styles.googleBtn}
             >
-              🔵 Google 账户登录
+              🔵 Google 账号一键登录
             </Button>
           )}
         </Card>
@@ -295,21 +271,6 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             value={serverIp}
             onChangeText={handleIpChange}
             helperText="真机调试时，请输入您电脑所在的局域网 IP 与端口"
-          />
-          <Input
-            label="🔑 Google Web Client ID"
-            placeholder="输入您的 Google Web Client ID..."
-            value={googleClientId}
-            onChangeText={handleGoogleClientIdChange}
-            helperText="测试谷歌登录时，请填入您的 Google Web Client ID"
-            style={{ marginTop: theme.spacing[2] }}
-          />
-          <Input
-            label="🔗 Expo 重定向 URI (Redirect URI)"
-            value={redirectUri}
-            editable={false}
-            helperText="🚨 请将此 URI 复制并添加到您的 Google Cloud 控制台该客户端的“已授权重定向 URI”列表中！"
-            style={{ marginTop: theme.spacing[2] }}
           />
         </Card>
       </ScrollView>

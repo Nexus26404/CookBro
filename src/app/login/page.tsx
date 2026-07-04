@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui';
 import { Input } from '@/components/ui';
@@ -10,6 +10,9 @@ import styles from './login.module.css';
 export default function LoginPage() {
   const { signInWithGoogle, signInWithEmail, signUpWithEmail, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTarget = searchParams.get('redirect') || '/';
+  
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,7 +25,7 @@ export default function LoginPage() {
     try {
       setError('');
       await signInWithGoogle();
-      router.push('/');
+      router.push(redirectTarget);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : '登录失败，请重试';
       setError(errorMessage);
@@ -45,7 +48,7 @@ export default function LoginPage() {
       } else {
         await signInWithEmail(email, password);
       }
-      router.push('/');
+      router.push(redirectTarget);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : '操作失败，请重试';
       if (errorMessage.includes('auth/invalid-credential') || errorMessage.includes('auth/wrong-password')) {
