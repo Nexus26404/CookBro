@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import {
-  SafeAreaView,
   StyleSheet,
   Text,
   View,
@@ -9,11 +8,15 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
-  StatusBar as RNStatusBar
+  StatusBar as RNStatusBar,
+  ActivityIndicator
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from './theme';
 import { Card, Button, Badge } from './components/ui';
-import { DEMO_RECIPES, Recipe } from './lib/mockData';
+import { DEMO_RECIPES } from './lib/mockData';
+import { LoginScreen } from './components/screens/LoginScreen';
+import { loadSession, clearSession, UserSession } from './lib/api';
 
 type MealTab = 'breakfast' | 'lunch' | 'dinner';
 
@@ -37,6 +40,9 @@ function getDefaultMeal(): MealTab {
 }
 
 export default function App() {
+  const [user, setUser] = useState<UserSession | null>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
   const [activeNav, setActiveNav] = useState<'menu' | 'recipes' | 'group'>('menu');
   const [activeTab, setActiveTab] = useState<MealTab>(getDefaultMeal);
   
@@ -55,6 +61,40 @@ export default function App() {
   });
 
   const [isBarCollapsed, setIsBarCollapsed] = useState(false);
+
+  // Load local auth session on startup
+  useEffect(() => {
+    loadSession()
+      .then(savedUser => {
+        if (savedUser) {
+          setUser(savedUser);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to load session:', err);
+      })
+      .finally(() => {
+        setCheckingAuth(false);
+      });
+  }, []);
+
+  const handleLogout = () => {
+    Alert.alert(
+      '退出登录',
+      '您确定要退出当前账号吗？',
+      [
+        { text: '取消', style: 'cancel' },
+        { 
+          text: '确定', 
+          onPress: async () => {
+            await clearSession();
+            setUser(null);
+            Alert.alert('提示', '已成功退出登录');
+          }
+        }
+      ]
+    );
+  };
 
   const activeCartItems = cart[activeTab] || [];
   const activeOrderedItems = orderedForTab[activeTab] || [];
@@ -140,22 +180,45 @@ export default function App() {
   const weekday = weekdays[today.getDay()];
   const mealInfo = MEAL_CONFIG[activeTab];
 
+  if (checkingAuth) {
+    return (
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.loadingContainer}>
+          <StatusBar style="dark" />
+          <ActivityIndicator size="large" color={theme.colors.primary[500]} />
+          <Text style={styles.loadingText}>🍳 加载中...</Text>
+        </SafeAreaView>
+      </SafeAreaProvider>
+    );
+  }
+
+  if (!user) {
+    return (
+      <SafeAreaProvider>
+        <LoginScreen onLoginSuccess={setUser} />
+      </SafeAreaProvider>
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" />
-      
-      {/* Brand Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.headerLogoIcon}>🍳</Text>
-          <Text style={styles.headerTitle}>CookBro</Text>
-        </View>
-        <View style={styles.headerRight}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarFallback}>H</Text>
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="dark" />
+        
+        {/* Brand Header */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.headerLogoIcon}>🍳</Text>
+            <Text style={styles.headerTitle}>CookBro</Text>
+          </View>
+          <View style={styles.headerRight}>
+            <TouchableOpacity style={styles.avatar} onPress={handleLogout}>
+              <Text style={styles.avatarFallback}>
+                {user.displayName ? user.displayName[0].toUpperCase() : (user.email ? user.email[0].toUpperCase() : '?')}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </View>
 
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         {activeNav === 'menu' && (
@@ -340,6 +403,7 @@ export default function App() {
         </TouchableOpacity>
       </View>
     </SafeAreaView>
+  </SafeAreaProvider>
   );
 }
 
@@ -347,7 +411,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: theme.colors.bg.primary,
-    paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0,
   },
   header: {
     height: 56,
@@ -727,5 +790,17 @@ const styles = StyleSheet.create({
     color: theme.colors.text.secondary,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.bg.primary,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: theme.colors.text.secondary,
+    fontWeight: '500',
+    marginTop: theme.spacing[3],
   },
 });
