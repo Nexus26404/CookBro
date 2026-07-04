@@ -9,9 +9,15 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "CookBro · 家庭煮夫",
+  title: "CookBro · 家庭点餐",
   description: "家庭菜谱管理与点菜应用，让做饭更简单",
   keywords: ["菜谱", "做饭", "家庭", "点菜", "CookBro"],
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "CookBro",
+  },
 };
 
 export const viewport: Viewport = {
@@ -30,6 +36,21 @@ export default function RootLayout({
     <html lang="zh-CN" className={geistSans.variable}>
       <body>
         <Providers>{children}</Providers>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js').then(function(reg) {
+                    console.log('ServiceWorker registration successful');
+                  }).catch(function(err) {
+                    console.log('ServiceWorker registration failed: ', err);
+                  });
+                });
+              }
+            `,
+          }}
+        />
       </body>
     </html>
   );
