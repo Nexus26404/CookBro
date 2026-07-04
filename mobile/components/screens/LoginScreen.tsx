@@ -32,18 +32,14 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [serverIp, setServerIp] = useState('');
   const [googleClientId, setGoogleClientId] = useState(process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '');
   
-  const [redirectUri, setRedirectUri] = useState('');
+  const [redirectUri, setRedirectUri] = useState('https://auth.expo.io/@anonymous/mobile');
   
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Initialize Server IP, Google Client ID, and Redirect URI from storage
+  // Initialize Server IP and Google Client ID from storage
   useEffect(() => {
     setServerIp(getApiBaseUrl());
-    
-    // In Expo Go, the redirect URL is resolved via the Expo proxy domain using the project slug
-    const resolvedUri = 'https://auth.expo.io/@anonymous/mobile';
-    setRedirectUri(resolvedUri);
 
     AsyncStorage.getItem('cookbro_google_client_id').then(id => {
       if (id) {
