@@ -12,6 +12,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
+import * as AuthSession from 'expo-auth-session';
 import { theme } from '../../theme';
 import { Card, Button, Input } from '../ui';
 import { apiFetch, saveSession, getApiBaseUrl, setApiBaseUrl, UserSession } from '../../lib/api';
@@ -29,14 +30,17 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [serverIp, setServerIp] = useState('');
-  const [googleClientId, setGoogleClientId] = useState('');
+  const [googleClientId, setGoogleClientId] = useState(process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '');
+  
+  const [redirectUri, setRedirectUri] = useState('');
   
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Initialize Server IP and Google Client ID from storage
+  // Initialize Server IP, Google Client ID, and Redirect URI from storage
   useEffect(() => {
     setServerIp(getApiBaseUrl());
+    setRedirectUri(AuthSession.makeRedirectUri());
     AsyncStorage.getItem('cookbro_google_client_id').then(id => {
       if (id) {
         setGoogleClientId(id);
@@ -44,9 +48,11 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     });
   }, []);
 
-  // Google OAuth Request Hook
   const [request, response, promptAsync] = Google.useAuthRequest({
     webClientId: googleClientId || undefined,
+    androidClientId: googleClientId || undefined,
+    iosClientId: googleClientId || undefined,
+    redirectUri: redirectUri || undefined,
   });
 
   // Listen to Google login response
@@ -296,6 +302,13 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             value={googleClientId}
             onChangeText={handleGoogleClientIdChange}
             helperText="测试谷歌登录时，请填入您的 Google Web Client ID"
+            style={{ marginTop: theme.spacing[2] }}
+          />
+          <Input
+            label="🔗 Expo 重定向 URI (Redirect URI)"
+            value={redirectUri}
+            editable={false}
+            helperText="🚨 请将此 URI 复制并添加到您的 Google Cloud 控制台该客户端的“已授权重定向 URI”列表中！"
             style={{ marginTop: theme.spacing[2] }}
           />
         </Card>
