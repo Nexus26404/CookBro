@@ -9,9 +9,15 @@ import {
   Alert,
   TouchableOpacity
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
 import { theme } from '../../theme';
 import { Card, Button, Input } from '../ui';
 import { apiFetch, saveSession, getApiBaseUrl, setApiBaseUrl, UserSession } from '../../lib/api';
+
+// Complete auth session on redirect (required for Expo WebBrowser OAuth)
+WebBrowser.maybeCompleteAuthSession();
 
 interface LoginScreenProps {
   onLoginSuccess: (user: UserSession) => void;
@@ -23,18 +29,42 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [serverIp, setServerIp] = useState('');
+  const [googleClientId, setGoogleClientId] = useState('');
   
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Initialize Server IP input from current setting
+  // Initialize Server IP and Google Client ID from storage
   useEffect(() => {
     setServerIp(getApiBaseUrl());
+    AsyncStorage.getItem('cookbro_google_client_id').then(id => {
+      if (id) {
+        setGoogleClientId(id);
+      }
+    });
   }, []);
+
+  // Google OAuth Request Hook
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    webClientId: googleClientId || undefined,
+  });
+
+  // Listen to Google login response
+  useEffect(() => {
+    if (response?.type === 'success' && response.authentication) {
+      const accessToken = response.authentication.accessToken;
+      handleGoogleLoginSuccess(accessToken);
+    }
+  }, [response]);
 
   const handleIpChange = async (val: string) => {
     setServerIp(val);
     await setApiBaseUrl(val);
+  };
+
+  const handleGoogleClientIdChange = async (id: string) => {
+    setGoogleClientId(id);
+    await AsyncStorage.setItem('cookbro_google_client_id', id);
   };
 
   const validate = () => {
@@ -94,6 +124,53 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     }
   };
 
+  const handleGoogleLoginSuccess = async (token: string) => {
+    setLoading(true);
+    setError('');
+    
+    try {
+      // Fetch user profile from Google UserInfo API
+      const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      const profile = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(profile.error_description || '获取谷歌用户信息失败');
+      }
+
+      // Map to standard UserSession
+      const userSession: UserSession = {
+        uid: `google-${profile.sub}`,
+        email: profile.email,
+        displayName: profile.name,
+        photoURL: profile.picture
+      };
+
+      // Sync the user to the Next.js database (corresponds to syncUserToDb on web)
+      const syncRes = await apiFetch('/api/users/me', {
+        method: 'POST',
+        body: JSON.stringify(userSession)
+      });
+
+      if (!syncRes.ok) {
+        console.warn('Failed to sync Google user to database');
+      }
+
+      // Save user session in local AsyncStorage
+      await saveSession(userSession);
+      
+      Alert.alert('欢迎', '谷歌登录成功！');
+      onLoginSuccess(userSession);
+    } catch (err: any) {
+      console.error('Google login processing error:', err);
+      setError(err.message || '谷歌账户授权并同步失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -133,11 +210,11 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             </TouchableOpacity>
           </View>
 
-          {error ? (
+          {error && (
             <View style={styles.errorBanner}>
               <Text style={styles.errorText}>⚠️ {error}</Text>
             </View>
-          ) : null}
+          )}
 
           {isSignUp && (
             <Input
@@ -176,6 +253,32 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           >
             {isSignUp ? '立即注册' : '确认登录'}
           </Button>
+
+          {!isSignUp && (
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>或</Text>
+              <View style={styles.dividerLine} />
+            </View>
+          )}
+
+          {!isSignUp && (
+            <Button
+              variant="secondary"
+              fullWidth
+              onPress={() => {
+                if (!googleClientId) {
+                  Alert.alert('提示', '请先在下方的“开发服务器配置”中填写 Google Web Client ID');
+                  return;
+                }
+                promptAsync();
+              }}
+              disabled={loading}
+              style={styles.googleBtn}
+            >
+              🔵 Google 账户登录
+            </Button>
+          )}
         </Card>
 
         {/* Server IP Configuration Panel */}
@@ -186,6 +289,14 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             value={serverIp}
             onChangeText={handleIpChange}
             helperText="真机调试时，请输入您电脑所在的局域网 IP 与端口"
+          />
+          <Input
+            label="🔑 Google Web Client ID"
+            placeholder="输入您的 Google Web Client ID..."
+            value={googleClientId}
+            onChangeText={handleGoogleClientIdChange}
+            helperText="测试谷歌登录时，请填入您的 Google Web Client ID"
+            style={{ marginTop: theme.spacing[2] }}
           />
         </Card>
       </ScrollView>
@@ -281,6 +392,25 @@ const styles = StyleSheet.create({
   },
   submitBtn: {
     marginTop: theme.spacing[2],
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: theme.spacing[4],
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: theme.colors.border.default,
+  },
+  dividerText: {
+    marginHorizontal: theme.spacing[3],
+    color: theme.colors.text.tertiary,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  googleBtn: {
+    borderColor: theme.colors.border.default,
   },
   ipCard: {
     width: '100%',
