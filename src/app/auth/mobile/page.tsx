@@ -12,13 +12,16 @@ export default function AuthMobilePage() {
     if (loading) return;
 
     if (!user) {
-      // If not logged in on the web, redirect to the login page
-      // And set redirect param so it returns to /auth/mobile after successful web login!
-      router.push('/login?redirect=/auth/mobile');
+      // Forward the current query parameters (including redirect_uri) to the login page
+      const currentQuery = new URLSearchParams(window.location.search).toString();
+      router.push(`/login?redirect=/auth/mobile${currentQuery ? `&${currentQuery}` : ''}`);
       return;
     }
 
-    // If logged in, construct deep link to pass user details back to Expo Go mobile app
+    const searchParams = new URLSearchParams(window.location.search);
+    const redirectUri = searchParams.get('redirect_uri') || 'cookbro://auth';
+
+    // Construct deep link query parameters
     const params = new URLSearchParams({
       uid: user.uid,
       email: user.email || '',
@@ -26,11 +29,23 @@ export default function AuthMobilePage() {
       photoURL: user.photoURL || '',
     });
 
-    const deepLinkUrl = `cookbro://auth?${params.toString()}`;
-    
-    // Redirect the browser window to open the native app scheme callback
-    window.location.href = deepLinkUrl;
+    // Redirect the browser window back to the dynamic app callback URI
+    window.location.href = `${redirectUri}?${params.toString()}`;
   }, [user, loading, router]);
+
+  // Handle manual backup button link
+  const getManualRedirectUrl = () => {
+    if (!user) return '#';
+    const searchParams = new URLSearchParams(window.location.search);
+    const redirectUri = searchParams.get('redirect_uri') || 'cookbro://auth';
+    const params = new URLSearchParams({
+      uid: user.uid,
+      email: user.email || '',
+      displayName: user.displayName || '',
+      photoURL: user.photoURL || '',
+    });
+    return `${redirectUri}?${params.toString()}`;
+  };
 
   return (
     <div style={containerStyle}>
@@ -41,12 +56,7 @@ export default function AuthMobilePage() {
         <p style={subtextStyle}>如果您的浏览器没有自动跳转，请点击下方按钮：</p>
         {user && (
           <a
-            href={`cookbro://auth?${new URLSearchParams({
-              uid: user.uid,
-              email: user.email || '',
-              displayName: user.displayName || '',
-              photoURL: user.photoURL || '',
-            }).toString()}`}
+            href={getManualRedirectUrl()}
             style={btnStyle}
           >
             手动返回 App 👉

@@ -46,8 +46,8 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       const parsed = Linking.parse(event.url);
       const params = parsed.queryParams;
       
-      // Check if deep link matches our auth callback target
-      if (event.url.includes('cookbro://auth') && params && params.uid) {
+      // Check if deep link matches our auth callback target (handles both Expo Go dev and production schemes)
+      if ((event.url.includes('cookbro://auth') || event.url.includes('/--/auth')) && params && params.uid) {
         const userSession: UserSession = {
           uid: params.uid as string,
           email: (params.email as string) || '',
@@ -145,12 +145,16 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     try {
       // Direct Web Authentication URL (Next.js server landing page for mobile auth)
       const baseServerUrl = serverIp.replace(/\/api$/, '').replace(/\/$/, '');
-      const webAuthUrl = `${baseServerUrl}/auth/mobile`;
+      
+      // Resolve the correct deep-link scheme dynamically for current environment (e.g. exp://ip:port/--/auth or cookbro://auth)
+      const appRedirectUrl = Linking.createURL('auth');
+      
+      const webAuthUrl = `${baseServerUrl}/auth/mobile?redirect_uri=${encodeURIComponent(appRedirectUrl)}`;
       
       console.log('Opening WebAuth portal:', webAuthUrl);
       
-      // Open WebBrowser session pointing to the server mobile login page
-      await WebBrowser.openAuthSessionAsync(webAuthUrl, 'cookbro://');
+      // Open WebBrowser session with dynamic app redirect scheme
+      await WebBrowser.openAuthSessionAsync(webAuthUrl, appRedirectUrl);
     } catch (err: any) {
       console.error('Google portal open error:', err);
       setError('无法打开网页登录端口，请检查您的服务器 IP 配置');
