@@ -20,7 +20,8 @@ import { RecipesScreen } from './components/screens/RecipesScreen';
 import { RecipeDetailsScreen } from './components/screens/RecipeDetailsScreen';
 import { RecipeFormScreen } from './components/screens/RecipeFormScreen';
 import { GroupScreen } from './components/screens/GroupScreen';
-import { loadSession, clearSession, UserSession } from './lib/api';
+import { loadSession, clearSession, UserSession, apiFetch } from './lib/api';
+import { CookGroup, Order, Recipe } from './lib/types';
 
 type MealTab = 'breakfast' | 'lunch' | 'dinner';
 
@@ -60,12 +61,14 @@ export default function App() {
     dinner: []
   });
 
-  // Simulated already ordered recipes mapping tab -> list of recipe IDs
-  const [orderedForTab, setOrderedForTab] = useState<Record<MealTab, string[]>>({
-    breakfast: [],
-    lunch: ['2'], // Simulate already ordered Tomato Scrambled Egg for lunch
-    dinner: []
-  });
+  // Synchronized States
+  const [group, setGroup] = useState<CookGroup | null>(null);
+  const [groupLoading, setGroupLoading] = useState(true);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [recipesLoading, setRecipesLoading] = useState(true);
+  const [order, setOrder] = useState<Order | null>(null);
+  const [orderCounts, setOrderCounts] = useState<Record<string, number>>({});
+  const [confirmingOrder, setConfirmingOrder] = useState(false);
 
   const [isBarCollapsed, setIsBarCollapsed] = useState(false);
 
@@ -100,15 +103,153 @@ export default function App() {
       .then(savedUser => {
         if (savedUser) {
           setUser(savedUser);
+        } else {
+          setCheckingAuth(false);
         }
       })
       .catch(err => {
         console.error('Failed to load session:', err);
-      })
-      .finally(() => {
         setCheckingAuth(false);
       });
   }, []);
+
+  const fetchGroup = async () => {
+    setGroupLoading(true);
+    try {
+      const res = await apiFetch('/api/groups');
+      if (res.ok) {
+        const data = await res.json();
+        setGroup(data);
+        await loadHomeData(data.id);
+      } else {
+        setGroup(null);
+        await loadHomeData(undefined);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch group details, falling back to mock details:', err);
+      if (user) {
+        const mockGroup: CookGroup = {
+          id: 'mock-group-123',
+          name: '我家的厨房 👨‍👩‍👧',
+          members: [user.uid, 'mom-uid', 'dad-uid'],
+          inviteCode: 'COOK66',
+          createdBy: 'mom-uid',
+          createdAt: new Date().toISOString(),
+          memberProfiles: [
+            {
+              uid: user.uid,
+              displayName: user.displayName || '我',
+              email: user.email,
+              createdAt: new Date().toISOString(),
+            },
+            {
+              uid: 'mom-uid',
+              displayName: '家庭大厨 (妈妈)',
+              email: 'mom@cookbro.com',
+              createdAt: new Date().toISOString(),
+            },
+            {
+              uid: 'dad-uid',
+              displayName: '帮厨小能手 (爸爸)',
+              email: 'dad@cookbro.com',
+              createdAt: new Date().toISOString(),
+            }
+          ]
+        };
+        setGroup(mockGroup);
+        await loadHomeData(mockGroup.id);
+      }
+    } finally {
+      setGroupLoading(false);
+      setCheckingAuth(false);
+    }
+  };
+
+  const loadHomeData = async (currentGroupId?: string) => {
+    setRecipesLoading(true);
+    try {
+      const recRes = await apiFetch('/api/recipes');
+      if (recRes.ok) {
+        const data = await recRes.json();
+        setRecipes(data);
+      } else {
+        throw new Error('Failed to load recipes');
+      }
+    } catch (err) {
+      console.warn('Failed to load recipes, using mock fallback', err);
+      const mockRecipes: Recipe[] = DEMO_RECIPES.map(r => ({
+        ...r,
+        images: [],
+        tags: [],
+        servings: 2,
+        prepTime: 10,
+        ingredients: [],
+        utensils: [],
+        steps: [],
+        createdBy: 'system',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }));
+      setRecipes(mockRecipes);
+    } finally {
+      setRecipesLoading(false);
+    }
+
+    const gId = currentGroupId || group?.id;
+    if (!gId) {
+      setOrder(null);
+      setOrderCounts({});
+      return;
+    }
+
+    try {
+      const todayRes = await apiFetch(`/api/orders/today?groupId=${gId}`);
+      if (todayRes.ok) {
+        const todayData = await todayRes.json();
+        setOrder(todayData);
+      } else {
+        setOrder(null);
+      }
+    } catch (err) {
+      console.warn('Failed to load today orders', err);
+      setOrder(null);
+    }
+
+    try {
+      const historyRes = await apiFetch(`/api/orders?groupId=${gId}`);
+      if (historyRes.ok) {
+        const historyData: Order[] = await historyRes.json();
+        const counts: Record<string, number> = {};
+        for (const ord of historyData) {
+          for (const meal of ord.meals) {
+            for (const recipeId of meal.recipes) {
+              counts[recipeId] = (counts[recipeId] || 0) + 1;
+            }
+          }
+        }
+        setOrderCounts(counts);
+      }
+    } catch (err) {
+      console.warn('Failed to load history orders', err);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchGroup();
+    } else {
+      setGroup(null);
+      setOrder(null);
+      setOrderCounts({});
+      setRecipes([]);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user && activeNav === 'menu') {
+      loadHomeData();
+    }
+  }, [activeNav]);
 
   const handleLogout = () => {
     triggerModalConfirm(
@@ -127,7 +268,7 @@ export default function App() {
   };
 
   const activeCartItems = cart[activeTab] || [];
-  const activeOrderedItems = orderedForTab[activeTab] || [];
+  const activeOrderedItems = order?.meals.find((m) => m.type === activeTab)?.recipes || [];
 
   // Auto-expand cart bar when items count change
   useEffect(() => {
@@ -147,7 +288,7 @@ export default function App() {
   };
 
   const handleRandomRecipe = () => {
-    const available = DEMO_RECIPES.filter(
+    const available = recipes.filter(
       (r) => !activeCartItems.includes(r.id) && !activeOrderedItems.includes(r.id)
     );
 
@@ -175,29 +316,51 @@ export default function App() {
   const handleConfirmOrder = () => {
     if (activeCartItems.length === 0) return;
 
-    const orderedNames = DEMO_RECIPES.filter(r => activeCartItems.includes(r.id))
+    const orderedNames = recipes.filter(r => activeCartItems.includes(r.id))
       .map(r => `• ${r.name}`)
       .join('\n');
 
     triggerModalConfirm(
       '确认点菜',
       `您确定要点以下菜品吗？\n\n${orderedNames}`,
-      () => {
-        // Move items from cart to ordered list
-        setOrderedForTab((prev) => ({
-          ...prev,
-          [activeTab]: [...(prev[activeTab] || []), ...activeCartItems]
-        }));
-        // Clear active cart
-        setCart((prev) => ({
-          ...prev,
-          [activeTab]: []
-        }));
+      async () => {
+        setConfirmingOrder(true);
         setModalOpen(false);
-        // Delay alert slightly so the confirm modal fades out first
-        setTimeout(() => {
-          triggerModalAlert('成功', '点菜已确认！已加入今日菜单 🍳', 'success');
-        }, 300);
+        try {
+          const res = await apiFetch('/api/orders/today', {
+            method: 'POST',
+            body: JSON.stringify({
+              groupId: group?.id,
+              mealType: activeTab,
+              recipeIds: activeCartItems,
+            }),
+          });
+          
+          if (!res.ok) {
+            throw new Error('Failed to confirm order');
+          }
+
+          const updatedOrder = await res.json();
+          setOrder(updatedOrder);
+
+          // Clear active cart
+          setCart((prev) => ({
+            ...prev,
+            [activeTab]: []
+          }));
+
+          // Fetch latest count updates
+          loadHomeData();
+
+          setTimeout(() => {
+            triggerModalAlert('成功', '点菜已确认！已加入今日菜单 🍳', 'success');
+          }, 300);
+        } catch (err) {
+          console.error(err);
+          triggerModalAlert('错误', '提交订单失败，请稍后重试', 'error');
+        } finally {
+          setConfirmingOrder(false);
+        }
       }
     );
   };
@@ -335,7 +498,7 @@ export default function App() {
             <View style={styles.tabBar}>
               {(Object.entries(MEAL_CONFIG) as [MealTab, typeof mealInfo][]).map(([key, config]) => {
                 const isActive = activeTab === key;
-                const hasMealOrdered = (orderedForTab[key] || []).length > 0;
+                const hasMealOrdered = (order?.meals.find(m => m.type === key)?.recipes || []).length > 0;
                 return (
                   <TouchableOpacity
                     key={key}
@@ -364,42 +527,46 @@ export default function App() {
               </View>
 
               <View style={styles.menuGrid}>
-                {DEMO_RECIPES.map((recipe) => {
-                  const isSelected = activeCartItems.includes(recipe.id);
-                  const isOrdered = activeOrderedItems.includes(recipe.id);
-                  const diffInfo = DIFFICULTY_MAP[recipe.difficulty];
+                {recipesLoading ? (
+                  <ActivityIndicator size="small" color={theme.colors.primary[500]} style={{ margin: 20 }} />
+                ) : (
+                  recipes.map((recipe) => {
+                    const isSelected = activeCartItems.includes(recipe.id);
+                    const isOrdered = activeOrderedItems.includes(recipe.id);
+                    const diffInfo = DIFFICULTY_MAP[recipe.difficulty] || DIFFICULTY_MAP.easy;
 
-                  return (
-                    <Card
-                      key={recipe.id}
-                      padding="none"
-                      style={[
-                        styles.menuCard,
-                        isSelected ? styles.menuCardSelected : null,
-                        isOrdered ? styles.menuCardOrdered : null
-                      ]}
-                      onPress={() => toggleRecipe(recipe.id)}
-                    >
-                      <View style={styles.cardHeader}>
-                        <Text style={styles.cardIcon}>{recipe.icon}</Text>
-                        <Badge variant={diffInfo.color} size="sm">{diffInfo.label}</Badge>
-                      </View>
+                    return (
+                      <Card
+                        key={recipe.id}
+                        padding="none"
+                        style={[
+                          styles.menuCard,
+                          isSelected ? styles.menuCardSelected : null,
+                          isOrdered ? styles.menuCardOrdered : null
+                        ]}
+                        onPress={() => toggleRecipe(recipe.id)}
+                      >
+                        <View style={styles.cardHeader}>
+                          <Text style={styles.cardIcon}>{recipe.icon || '🍳'}</Text>
+                          <Badge variant={diffInfo.color} size="sm">{diffInfo.label}</Badge>
+                        </View>
 
-                      <View style={styles.cardBody}>
-                        <Text style={styles.cardName}>{recipe.name}</Text>
-                        <Text style={styles.cardCategory}>{recipe.category}</Text>
-                      </View>
+                        <View style={styles.cardBody}>
+                          <Text style={styles.cardName}>{recipe.name}</Text>
+                          <Text style={styles.cardCategory}>{recipe.category}</Text>
+                        </View>
 
-                      <View style={styles.cardMeta}>
-                        <Text style={styles.metaCount}>🔥 已点 {recipe.orderCount} 次</Text>
-                        <Text style={styles.metaTime}>⏱️ {recipe.cookTime}分钟</Text>
-                      </View>
+                        <View style={styles.cardMeta}>
+                          <Text style={styles.metaCount}>🔥 已点 {orderCounts[recipe.id] || 0} 次</Text>
+                          <Text style={styles.metaTime}>⏱️ {recipe.cookTime}分钟</Text>
+                        </View>
 
-                      {isSelected && <View style={styles.checkBadge}><Text style={styles.checkText}>✓</Text></View>}
-                      {isOrdered && !isSelected && <View style={styles.orderedBadge}><Text style={styles.orderedText}>✓</Text></View>}
-                    </Card>
-                  );
-                })}
+                        {isSelected && <View style={styles.checkBadge}><Text style={styles.checkText}>✓</Text></View>}
+                        {isOrdered && !isSelected && <View style={styles.orderedBadge}><Text style={styles.orderedText}>✓</Text></View>}
+                      </Card>
+                    );
+                  })
+                )}
               </View>
             </View>
             </View>
@@ -419,6 +586,9 @@ export default function App() {
           <GroupScreen
             user={user}
             onLogout={() => setUser(null)}
+            group={group}
+            loading={groupLoading}
+            onRefreshGroup={fetchGroup}
           />
         )}
 

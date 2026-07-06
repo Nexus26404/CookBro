@@ -22,13 +22,15 @@ const { width } = Dimensions.get('window');
 interface GroupScreenProps {
   user: UserSession;
   onLogout: () => void;
+  group: CookGroup | null;
+  loading: boolean;
+  onRefreshGroup: () => void;
 }
 
-export function GroupScreen({ user, onLogout }: GroupScreenProps) {
+export function GroupScreen({ user, onLogout, group, loading, onRefreshGroup }: GroupScreenProps) {
   const [view, setView] = useState<'main' | 'create' | 'join'>('main');
-  const [group, setGroup] = useState<CookGroup | null>(null);
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
   
   // Input fields
   const [groupName, setGroupName] = useState('');
@@ -49,59 +51,7 @@ export function GroupScreen({ user, onLogout }: GroupScreenProps) {
   const [copied, setCopied] = useState(false);
   const [showInviteSection, setShowInviteSection] = useState(false);
 
-  // Fetch current user's group details
-  const fetchGroupDetails = () => {
-    setLoading(true);
-    apiFetch('/api/groups')
-      .then(async (res) => {
-        if (res.ok) {
-          const data = await res.json();
-          setGroup(data);
-        } else {
-          setGroup(null);
-        }
-      })
-      .catch((err) => {
-        console.warn('Failed to fetch group details from server, falling back to mock group details:', err);
-        // Fallback to local mock group for rich debugging
-        const mockGroup: CookGroup = {
-          id: 'mock-group-123',
-          name: '我家的厨房 👨‍👩‍👧',
-          members: [user.uid, 'mom-uid', 'dad-uid'],
-          inviteCode: 'COOK66',
-          createdBy: 'mom-uid',
-          createdAt: new Date().toISOString(),
-          memberProfiles: [
-            {
-              uid: user.uid,
-              displayName: user.displayName || '我',
-              email: user.email,
-              createdAt: new Date().toISOString(),
-            },
-            {
-              uid: 'mom-uid',
-              displayName: '家庭大厨 (妈妈)',
-              email: 'mom@cookbro.com',
-              createdAt: new Date().toISOString(),
-            },
-            {
-              uid: 'dad-uid',
-              displayName: '帮厨小能手 (爸爸)',
-              email: 'dad@cookbro.com',
-              createdAt: new Date().toISOString(),
-            }
-          ]
-        };
-        setGroup(mockGroup);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  };
-
-  useEffect(() => {
-    fetchGroupDetails();
-  }, []);
+  // Lifted group details fetched by parent
 
   const triggerAlert = (title: string, desc: string, type: 'success' | 'warning' | 'error' | 'info' = 'info') => {
     setAlertTitle(title);
@@ -139,7 +89,7 @@ export function GroupScreen({ user, onLogout }: GroupScreenProps) {
       triggerAlert('成功', '您的家庭厨房创建成功！', 'success');
       setView('main');
       setGroupName('');
-      fetchGroupDetails();
+      onRefreshGroup();
     } catch (err: any) {
       console.error(err);
       triggerAlert('创建失败', err.message || '网络连接失败，请稍后重试', 'error');
@@ -169,7 +119,7 @@ export function GroupScreen({ user, onLogout }: GroupScreenProps) {
       triggerAlert('成功', '加入家庭厨房成功，开始规划今天的饭菜吧！', 'success');
       setView('main');
       setInviteCode('');
-      fetchGroupDetails();
+      onRefreshGroup();
     } catch (err: any) {
       console.error(err);
       triggerAlert('加入失败', err.message || '网络连接失败，请稍后重试', 'error');
@@ -191,7 +141,7 @@ export function GroupScreen({ user, onLogout }: GroupScreenProps) {
       `确定要将家庭成员 “${member.displayName}” 移出吗？移出后该成员将无法共同规划饭菜。`,
       async () => {
         setConfirmOpen(false);
-        setLoading(true);
+        setActionLoading(true);
         try {
           const res = await apiFetch('/api/groups/kick', {
             method: 'POST',
@@ -204,10 +154,11 @@ export function GroupScreen({ user, onLogout }: GroupScreenProps) {
           }
 
           triggerAlert('成功', `成员 “${member.displayName}” 已从家庭移出`, 'success');
-          fetchGroupDetails();
+          onRefreshGroup();
         } catch (err: any) {
           triggerAlert('操作失败', err.message || '移出成员失败，请重试', 'error');
-          setLoading(false);
+        } finally {
+          setActionLoading(false);
         }
       },
       'danger'
@@ -220,7 +171,7 @@ export function GroupScreen({ user, onLogout }: GroupScreenProps) {
       '确定要解散当前家庭群组吗？解散后所有成员关系、订单历史及饭菜规划都将被清空，且不可撤销！',
       async () => {
         setConfirmOpen(false);
-        setLoading(true);
+        setActionLoading(true);
         try {
           const res = await apiFetch('/api/groups/dissolve', {
             method: 'POST'
@@ -232,10 +183,11 @@ export function GroupScreen({ user, onLogout }: GroupScreenProps) {
           }
 
           triggerAlert('成功', '家庭群组已成功解散', 'success');
-          fetchGroupDetails();
+          onRefreshGroup();
         } catch (err: any) {
           triggerAlert('操作失败', err.message || '解散家庭失败，请重试', 'error');
-          setLoading(false);
+        } finally {
+          setActionLoading(false);
         }
       },
       'danger'
@@ -254,7 +206,7 @@ export function GroupScreen({ user, onLogout }: GroupScreenProps) {
     );
   };
 
-  if (loading) {
+  if (loading || actionLoading) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary[500]} />
