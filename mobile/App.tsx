@@ -16,6 +16,8 @@ import { theme } from './theme';
 import { Card, Button, Badge } from './components/ui';
 import { DEMO_RECIPES } from './lib/mockData';
 import { LoginScreen } from './components/screens/LoginScreen';
+import { RecipesScreen } from './components/screens/RecipesScreen';
+import { RecipeDetailsScreen } from './components/screens/RecipeDetailsScreen';
 import { loadSession, clearSession, UserSession } from './lib/api';
 
 type MealTab = 'breakfast' | 'lunch' | 'dinner';
@@ -45,6 +47,7 @@ export default function App() {
 
   const [activeNav, setActiveNav] = useState<'menu' | 'recipes' | 'group'>('menu');
   const [activeTab, setActiveTab] = useState<MealTab>(getDefaultMeal);
+  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   
   // Cart state mapping tab -> list of recipe IDs
   const [cart, setCart] = useState<Record<MealTab, string[]>>({
@@ -200,6 +203,24 @@ export default function App() {
     );
   }
 
+  if (selectedRecipeId) {
+    return (
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.safeArea}>
+          <StatusBar style="dark" />
+          <RecipeDetailsScreen
+            recipeId={selectedRecipeId}
+            onBack={() => setSelectedRecipeId(null)}
+            onEditRecipe={(id) => {
+              Alert.alert('提示', '编辑功能即将在第四阶段上线！');
+            }}
+            user={user}
+          />
+        </SafeAreaView>
+      </SafeAreaProvider>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.safeArea}>
@@ -322,13 +343,12 @@ export default function App() {
         )}
 
         {activeNav === 'recipes' && (
-          <View style={styles.placeholderPage}>
-            <Text style={styles.placeholderEmoji}>📖</Text>
-            <Text style={styles.placeholderTitle}>菜谱库</Text>
-            <Text style={styles.placeholderText}>
-              这里会移植您的详细双列菜谱库与新建/编辑表单功能。
-            </Text>
-          </View>
+          <RecipesScreen
+            onSelectRecipe={(id) => setSelectedRecipeId(id)}
+            onAddRecipe={() => {
+              Alert.alert('提示', '添加菜谱即将在第四阶段上线！');
+            }}
+          />
         )}
 
         {activeNav === 'group' && (
