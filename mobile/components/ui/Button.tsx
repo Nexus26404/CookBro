@@ -14,6 +14,10 @@ interface ButtonProps {
   style?: StyleProp<ViewStyle>;
 }
 
+const isTextLike = (child: any): boolean => {
+  return typeof child === 'string' || typeof child === 'number';
+};
+
 export function Button({
   children,
   onPress,
@@ -41,6 +45,23 @@ export function Button({
     styles[`text_${size}` as keyof typeof styles]
   ];
 
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <ActivityIndicator
+          color={variant === 'secondary' || variant === 'ghost' ? theme.colors.primary[500] : '#ffffff'}
+          size="small"
+        />
+      );
+    }
+    
+    if (isTextLike(children) || (Array.isArray(children) && children.every(isTextLike))) {
+      return <Text style={textStyles}>{children}</Text>;
+    }
+    
+    return children;
+  };
+
   return (
     <TouchableOpacity
       style={buttonStyles}
@@ -48,13 +69,7 @@ export function Button({
       disabled={disabled || loading}
       activeOpacity={0.75}
     >
-      {loading ? (
-        <ActivityIndicator color={variant === 'secondary' || variant === 'ghost' ? theme.colors.primary[500] : '#ffffff'} size="small" />
-      ) : typeof children === 'string' ? (
-        <Text style={textStyles}>{children}</Text>
-      ) : (
-        children
-      )}
+      {renderContent()}
     </TouchableOpacity>
   );
 }
