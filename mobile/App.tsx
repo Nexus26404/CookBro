@@ -13,12 +13,13 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from './theme';
-import { Card, Button, Badge } from './components/ui';
+import { Card, Button, Badge, AlertModal } from './components/ui';
 import { DEMO_RECIPES } from './lib/mockData';
 import { LoginScreen } from './components/screens/LoginScreen';
 import { RecipesScreen } from './components/screens/RecipesScreen';
 import { RecipeDetailsScreen } from './components/screens/RecipeDetailsScreen';
 import { RecipeFormScreen } from './components/screens/RecipeFormScreen';
+import { GroupScreen } from './components/screens/GroupScreen';
 import { loadSession, clearSession, UserSession } from './lib/api';
 
 type MealTab = 'breakfast' | 'lunch' | 'dinner';
@@ -68,6 +69,31 @@ export default function App() {
 
   const [isBarCollapsed, setIsBarCollapsed] = useState(false);
 
+  // Custom AlertModal state & trigger helpers (Phase 5)
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalDesc, setModalDesc] = useState('');
+  const [modalType, setModalType] = useState<'success' | 'warning' | 'error' | 'info'>('info');
+  const [modalConfirm, setModalConfirm] = useState<(() => void) | undefined>(undefined);
+  const [modalVariant, setModalVariant] = useState<'primary' | 'danger'>('primary');
+
+  const triggerModalAlert = (title: string, desc: string, type: 'success' | 'warning' | 'error' | 'info' = 'info') => {
+    setModalTitle(title);
+    setModalDesc(desc);
+    setModalType(type);
+    setModalConfirm(undefined);
+    setModalOpen(true);
+  };
+
+  const triggerModalConfirm = (title: string, desc: string, onConfirm: () => void, variant: 'primary' | 'danger' = 'primary') => {
+    setModalTitle(title);
+    setModalDesc(desc);
+    setModalType('info');
+    setModalConfirm(() => onConfirm);
+    setModalVariant(variant);
+    setModalOpen(true);
+  };
+
   // Load local auth session on startup
   useEffect(() => {
     loadSession()
@@ -85,20 +111,18 @@ export default function App() {
   }, []);
 
   const handleLogout = () => {
-    Alert.alert(
+    triggerModalConfirm(
       '退出登录',
       '您确定要退出当前账号吗？',
-      [
-        { text: '取消', style: 'cancel' },
-        { 
-          text: '确定', 
-          onPress: async () => {
-            await clearSession();
-            setUser(null);
-            Alert.alert('提示', '已成功退出登录');
-          }
-        }
-      ]
+      async () => {
+        setModalOpen(false);
+        await clearSession();
+        setUser(null);
+        // Delay alert slightly so the confirm modal hides first
+        setTimeout(() => {
+          triggerModalAlert('提示', '已成功退出登录', 'success');
+        }, 300);
+      }
     );
   };
 
@@ -128,7 +152,7 @@ export default function App() {
     );
 
     if (available.length === 0) {
-      Alert.alert('提示', '当前时段所有可选的菜品已在购物车或已点！');
+      triggerModalAlert('提示', '当前时段所有可选的菜品已在购物车或已点！', 'warning');
       return;
     }
 
@@ -155,28 +179,26 @@ export default function App() {
       .map(r => `• ${r.name}`)
       .join('\n');
 
-    Alert.alert(
+    triggerModalConfirm(
       '确认点菜',
       `您确定要点以下菜品吗？\n\n${orderedNames}`,
-      [
-        { text: '取消', style: 'cancel' },
-        { 
-          text: '确定', 
-          onPress: () => {
-            // Move items from cart to ordered list
-            setOrderedForTab((prev) => ({
-              ...prev,
-              [activeTab]: [...(prev[activeTab] || []), ...activeCartItems]
-            }));
-            // Clear active cart
-            setCart((prev) => ({
-              ...prev,
-              [activeTab]: []
-            }));
-            Alert.alert('成功', '点菜已确认！已加入今日菜单 🍳');
-          }
-        }
-      ]
+      () => {
+        // Move items from cart to ordered list
+        setOrderedForTab((prev) => ({
+          ...prev,
+          [activeTab]: [...(prev[activeTab] || []), ...activeCartItems]
+        }));
+        // Clear active cart
+        setCart((prev) => ({
+          ...prev,
+          [activeTab]: []
+        }));
+        setModalOpen(false);
+        // Delay alert slightly so the confirm modal fades out first
+        setTimeout(() => {
+          triggerModalAlert('成功', '点菜已确认！已加入今日菜单 🍳', 'success');
+        }, 300);
+      }
     );
   };
 
@@ -393,13 +415,10 @@ export default function App() {
         )}
 
         {activeNav === 'group' && (
-          <View style={styles.placeholderPage}>
-            <Text style={styles.placeholderEmoji}>👥</Text>
-            <Text style={styles.placeholderTitle}>家庭成员</Text>
-            <Text style={styles.placeholderText}>
-              这里会移植您的家庭组配对、邀请成员以及退出自定义警告弹窗。
-            </Text>
-          </View>
+          <GroupScreen
+            user={user}
+            onLogout={() => setUser(null)}
+          />
         )}
       </ScrollView>
 
@@ -463,6 +482,19 @@ export default function App() {
           <Text style={[styles.navLabel, activeNav === 'group' ? styles.navTextActive : null]}>家庭</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Reusable Custom Alert Modals */}
+      <AlertModal
+        visible={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onConfirm={modalConfirm}
+        title={modalTitle}
+        description={modalDesc}
+        type={modalType}
+        variant={modalVariant}
+        confirmText="确认"
+        cancelText="取消"
+      />
     </SafeAreaView>
   </SafeAreaProvider>
   );

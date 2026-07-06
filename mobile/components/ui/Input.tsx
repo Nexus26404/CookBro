@@ -1,26 +1,20 @@
 import React, { forwardRef, useState } from 'react';
-import { StyleSheet, Text, View, TextInput, ViewStyle, StyleProp } from 'react-native';
+import { StyleSheet, Text, View, TextInput, ViewStyle, StyleProp, TextInputProps } from 'react-native';
 import { theme } from '../../theme';
 
-interface InputProps {
+interface InputProps extends TextInputProps {
   label?: string;
   error?: string;
   helperText?: string;
-  placeholder?: string;
-  value?: string;
-  onChangeText?: (text: string) => void;
-  secureTextEntry?: boolean;
-  keyboardType?: 'default' | 'number-pad' | 'decimal-pad' | 'numeric' | 'email-address' | 'phone-pad';
-  style?: StyleProp<ViewStyle>;
-  editable?: boolean;
+  containerStyle?: StyleProp<ViewStyle>;
 }
 
 export const Input = forwardRef<TextInput, InputProps>(
-  ({ label, error, helperText, placeholder, value, onChangeText, secureTextEntry, keyboardType = 'default', style, editable = true }, ref) => {
+  ({ label, error, helperText, style, containerStyle, editable = true, ...props }, ref) => {
     const [focused, setFocused] = useState(false);
 
     return (
-      <View style={[styles.wrapper, style]}>
+      <View style={[styles.wrapper, containerStyle]}>
         {label && <Text style={styles.label}>{label}</Text>}
         <View
           style={[
@@ -32,17 +26,19 @@ export const Input = forwardRef<TextInput, InputProps>(
         >
           <TextInput
             ref={ref}
-            style={styles.input}
-            placeholder={placeholder}
+            style={[styles.input, style]}
             placeholderTextColor={theme.colors.text.tertiary}
-            value={value}
-            onChangeText={onChangeText}
-            secureTextEntry={secureTextEntry}
-            keyboardType={keyboardType}
             editable={editable}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
+            onFocus={(e) => {
+              setFocused(true);
+              if (props.onFocus) props.onFocus(e);
+            }}
+            onBlur={(e) => {
+              setFocused(false);
+              if (props.onBlur) props.onBlur(e);
+            }}
             underlineColorAndroid="transparent"
+            {...props}
           />
         </View>
         {error ? (
