@@ -41,10 +41,7 @@ export function RecipeDetailsScreen({ recipeId, onBack, onEditRecipe, user }: Re
   // Servings count state (adjuster)
   const [servings, setServings] = useState(2);
 
-  // Checklists states (checked ingredient / utensil indices and step indices)
-  const [checkedIngredients, setCheckedIngredients] = useState<Set<number>>(new Set());
-  const [checkedUtensils, setCheckedUtensils] = useState<Set<number>>(new Set());
-  const [checkedSteps, setCheckedSteps] = useState<Set<number>>(new Set());
+
 
   useEffect(() => {
     if (!recipeId) return;
@@ -165,41 +162,7 @@ export function RecipeDetailsScreen({ recipeId, onBack, onEditRecipe, user }: Re
     return `${formattedNum}${restStr}`;
   };
 
-  const toggleCheckIngredient = (index: number) => {
-    setCheckedIngredients(prev => {
-      const next = new Set(prev);
-      if (next.has(index)) {
-        next.delete(index);
-      } else {
-        next.add(index);
-      }
-      return next;
-    });
-  };
 
-  const toggleCheckUtensil = (index: number) => {
-    setCheckedUtensils(prev => {
-      const next = new Set(prev);
-      if (next.has(index)) {
-        next.delete(index);
-      } else {
-        next.add(index);
-      }
-      return next;
-    });
-  };
-
-  const toggleCheckStep = (index: number) => {
-    setCheckedSteps(prev => {
-      const next = new Set(prev);
-      if (next.has(index)) {
-        next.delete(index);
-      } else {
-        next.add(index);
-      }
-      return next;
-    });
-  };
 
   const handleDelete = () => {
     Alert.alert(
@@ -340,104 +303,80 @@ export function RecipeDetailsScreen({ recipeId, onBack, onEditRecipe, user }: Re
           <Text style={styles.adjusterHelper}>* 调节人份后，下方用料分量将为您自动换算比例</Text>
         </Card>
 
-        {/* Utensils Checklist */}
+        {/* Utensils List */}
         {recipe.utensils && recipe.utensils.length > 0 ? (
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>需要的厨具</Text>
             <Card padding="none" style={styles.checklistCard}>
               {recipe.utensils.map((utensil, index) => {
-                const isChecked = checkedUtensils.has(index);
                 return (
-                  <TouchableOpacity
+                  <View
                     key={index}
                     style={[styles.checkrow, index === recipe.utensils.length - 1 ? styles.lastRow : null]}
-                    onPress={() => toggleCheckUtensil(index)}
-                    activeOpacity={0.7}
                   >
-                    <View style={[styles.checkbox, isChecked ? styles.checkboxChecked : null]}>
-                      {isChecked && <Text style={styles.checkboxCheck}>✓</Text>}
-                    </View>
-                    <Text style={[styles.checklistLabel, isChecked ? styles.checklistLabelChecked : null]}>
+                    <Text style={styles.checklistLabel}>
                       🍳 {utensil}
                     </Text>
-                  </TouchableOpacity>
+                  </View>
                 );
               })}
             </Card>
           </View>
         ) : null}
 
-        {/* Ingredients Checklist */}
+        {/* Ingredients List */}
         {recipe.ingredients && recipe.ingredients.length > 0 ? (
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>用料</Text>
             <Card padding="none" style={styles.checklistCard}>
               {recipe.ingredients.map((ing, index) => {
-                const isChecked = checkedIngredients.has(index);
                 return (
-                  <TouchableOpacity
+                  <View
                     key={index}
                     style={[styles.checkrow, index === recipe.ingredients.length - 1 ? styles.lastRow : null]}
-                    onPress={() => toggleCheckIngredient(index)}
-                    activeOpacity={0.7}
                   >
-                    <View style={[styles.checkbox, isChecked ? styles.checkboxChecked : null]}>
-                      {isChecked && <Text style={styles.checkboxCheck}>✓</Text>}
-                    </View>
-                    <Text style={[styles.checklistLabel, isChecked ? styles.checklistLabelChecked : null]}>
+                    <Text style={styles.checklistLabel}>
                       {ing.name}
                     </Text>
-                    <Text style={[styles.ingredientAmount, isChecked ? styles.checklistLabelChecked : null]}>
+                    <Text style={styles.ingredientAmount}>
                       {getScaledAmount(ing.amount)}
                     </Text>
-                  </TouchableOpacity>
+                  </View>
                 );
               })}
             </Card>
           </View>
         ) : null}
 
-        {/* Steps Checklist */}
+        {/* Steps List */}
         {recipe.steps && recipe.steps.length > 0 ? (
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>步骤步骤</Text>
+            <Text style={styles.sectionTitle}>步骤</Text>
             {recipe.steps.map((step, index) => {
-              const isChecked = checkedSteps.has(index);
               return (
                 <Card
                   key={index}
                   padding="md"
-                  style={[
-                    styles.stepCard,
-                    isChecked ? styles.stepCardChecked : null
-                  ]}
+                  style={styles.stepCard}
                 >
-                  <TouchableOpacity
-                    style={styles.stepContent}
-                    onPress={() => toggleCheckStep(index)}
-                    activeOpacity={0.8}
-                  >
-                    <View style={[styles.stepNumContainer, isChecked ? styles.stepNumChecked : null]}>
-                      <Text style={[styles.stepNumText, isChecked ? styles.stepNumTextChecked : null]}>
+                  <View style={styles.stepContent}>
+                    <View style={styles.stepNumContainer}>
+                      <Text style={styles.stepNumText}>
                         {index + 1}
                       </Text>
                     </View>
                     
                     <View style={styles.stepTextContainer}>
-                      <Text style={[styles.stepDescText, isChecked ? styles.stepDescTextChecked : null]}>
+                      <Text style={styles.stepDescText}>
                         {step.description}
                       </Text>
                       {step.duration ? (
-                        <Text style={[styles.stepTimerText, isChecked ? styles.stepTimerTextChecked : null]}>
+                        <Text style={styles.stepTimerText}>
                           ⏱️ 计时: {step.duration}分钟
                         </Text>
                       ) : null}
                     </View>
-                    
-                    <View style={[styles.stepCheckCircle, isChecked ? styles.stepCheckCircleChecked : null]}>
-                      {isChecked && <Text style={styles.stepCheckCheck}>✓</Text>}
-                    </View>
-                  </TouchableOpacity>
+                  </View>
                 </Card>
               );
             })}
