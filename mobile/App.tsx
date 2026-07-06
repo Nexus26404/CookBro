@@ -150,15 +150,14 @@ export default function App() {
       setSelectedOrderId(prev.selectedOrderId);
       return true;
     }
-    
-    Alert.alert(
+    triggerModalConfirm(
       '退出应用',
       '确定要退出 CookBro 吗？',
-      [
-        { text: '取消', style: 'cancel' },
-        { text: '确定退出', onPress: () => BackHandler.exitApp() }
-      ],
-      { cancelable: true }
+      () => {
+        setModalOpen(false);
+        BackHandler.exitApp();
+      },
+      'primary'
     );
     return true;
   };
