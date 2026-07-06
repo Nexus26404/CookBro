@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Image
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from './theme';
 import { Card, Button, Badge, AlertModal } from './components/ui';
@@ -127,38 +128,24 @@ export default function App() {
         await loadHomeData(undefined);
       }
     } catch (err) {
-      console.warn('Failed to fetch group details, falling back to mock details:', err);
+      console.warn('Failed to fetch group details, checking offline group:', err);
       if (user) {
-        const mockGroup: CookGroup = {
-          id: 'mock-group-123',
-          name: '我家的厨房 👨‍👩‍👧',
-          members: [user.uid, 'mom-uid', 'dad-uid'],
-          inviteCode: 'COOK66',
-          createdBy: 'mom-uid',
-          createdAt: new Date().toISOString(),
-          memberProfiles: [
-            {
-              uid: user.uid,
-              displayName: user.displayName || '我',
-              email: user.email,
-              createdAt: new Date().toISOString(),
-            },
-            {
-              uid: 'mom-uid',
-              displayName: '家庭大厨 (妈妈)',
-              email: 'mom@cookbro.com',
-              createdAt: new Date().toISOString(),
-            },
-            {
-              uid: 'dad-uid',
-              displayName: '帮厨小能手 (爸爸)',
-              email: 'dad@cookbro.com',
-              createdAt: new Date().toISOString(),
-            }
-          ]
-        };
-        setGroup(mockGroup);
-        await loadHomeData(mockGroup.id);
+        try {
+          const offlineGroupStr = await AsyncStorage.getItem(`cookbro_offline_group_${user.uid}`);
+          if (offlineGroupStr) {
+            const offlineGroup = JSON.parse(offlineGroupStr);
+            setGroup(offlineGroup);
+            await loadHomeData(offlineGroup.id);
+          } else {
+            setGroup(null);
+            await loadHomeData(undefined);
+          }
+        } catch {
+          setGroup(null);
+          await loadHomeData(undefined);
+        }
+      } else {
+        setGroup(null);
       }
     } finally {
       setGroupLoading(false);
