@@ -9,7 +9,8 @@ import {
   Alert,
   Platform,
   StatusBar as RNStatusBar,
-  ActivityIndicator
+  ActivityIndicator,
+  Image
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from './theme';
@@ -116,7 +117,7 @@ export default function App() {
   const fetchGroup = async () => {
     setGroupLoading(true);
     try {
-      const res = await apiFetch('/api/groups');
+      const res = await apiFetch(`/api/groups?uid=${user?.uid || ''}`);
       if (res.ok) {
         const data = await res.json();
         setGroup(data);
@@ -365,6 +366,20 @@ export default function App() {
     );
   };
 
+  const handleClearCart = () => {
+    triggerModalConfirm(
+      '清空购物车',
+      '您确定要清空当前餐次的已选菜品吗？',
+      () => {
+        setCart((prev) => ({
+          ...prev,
+          [activeTab]: []
+        }));
+        setModalOpen(false);
+      }
+    );
+  };
+
   const today = new Date();
   const dateStr = `${today.getMonth() + 1}月${today.getDate()}日`;
   const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
@@ -534,6 +549,7 @@ export default function App() {
                     const isSelected = activeCartItems.includes(recipe.id);
                     const isOrdered = activeOrderedItems.includes(recipe.id);
                     const diffInfo = DIFFICULTY_MAP[recipe.difficulty] || DIFFICULTY_MAP.easy;
+                    const hasCoverImg = recipe.images && recipe.images.length > 0;
 
                     return (
                       <Card
@@ -546,19 +562,30 @@ export default function App() {
                         ]}
                         onPress={() => toggleRecipe(recipe.id)}
                       >
-                        <View style={styles.cardHeader}>
-                          <Text style={styles.cardIcon}>{recipe.icon || '🍳'}</Text>
-                          <Badge variant={diffInfo.color} size="sm">{diffInfo.label}</Badge>
+                        {/* Cover Image or Emoji Fallback */}
+                        <View style={styles.cardCover}>
+                          {hasCoverImg ? (
+                            <Image source={{ uri: recipe.images[0] }} style={styles.cardCoverImg} />
+                          ) : (
+                            <View style={styles.cardCoverFallback}>
+                              <Text style={styles.cardCoverEmoji}>{recipe.icon || '🍳'}</Text>
+                            </View>
+                          )}
+                          <View style={styles.cardBadgeContainer}>
+                            <Badge variant={diffInfo.color} size="sm">{diffInfo.label}</Badge>
+                          </View>
                         </View>
 
-                        <View style={styles.cardBody}>
-                          <Text style={styles.cardName}>{recipe.name}</Text>
-                          <Text style={styles.cardCategory}>{recipe.category}</Text>
-                        </View>
+                        <View style={styles.cardContent}>
+                          <View style={styles.cardBody}>
+                            <Text style={styles.cardName} numberOfLines={1}>{recipe.name}</Text>
+                            <Text style={styles.cardCategory}>{recipe.category}</Text>
+                          </View>
 
-                        <View style={styles.cardMeta}>
-                          <Text style={styles.metaCount}>🔥 已点 {orderCounts[recipe.id] || 0} 次</Text>
-                          <Text style={styles.metaTime}>⏱️ {recipe.cookTime}分钟</Text>
+                          <View style={styles.cardMeta}>
+                            <Text style={styles.metaCount}>🔥 已点 {orderCounts[recipe.id] || 0} 次</Text>
+                            <Text style={styles.metaTime}>⏱️ {recipe.cookTime}分钟</Text>
+                          </View>
                         </View>
 
                         {isSelected && <View style={styles.checkBadge}><Text style={styles.checkText}>✓</Text></View>}
@@ -613,6 +640,14 @@ export default function App() {
               <Text style={styles.cartInfoIcon}>🛒</Text>
               <Text style={styles.cartInfoText}>已选 {activeCartItems.length} 道菜</Text>
               <Text style={styles.cartChevron}>▲</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.clearCartBtn}
+              onPress={handleClearCart}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.clearCartText}>🗑️ 清空</Text>
             </TouchableOpacity>
             
             <Button
@@ -831,14 +866,14 @@ const styles = StyleSheet.create({
   },
   menuCard: {
     width: '48%',
-    height: 160,
+    height: 188,
     backgroundColor: theme.colors.bg.card,
     borderRadius: theme.radius.xl,
-    padding: theme.spacing[3],
     marginBottom: theme.spacing[3],
     borderWidth: 1.5,
     borderColor: theme.colors.border.light,
     position: 'relative',
+    overflow: 'hidden',
   },
   menuCardSelected: {
     borderColor: theme.colors.primary[500],
@@ -1065,5 +1100,48 @@ const styles = StyleSheet.create({
     color: theme.colors.text.secondary,
     fontWeight: '500',
     marginTop: theme.spacing[3],
+  },
+  cardCover: {
+    height: 96,
+    width: '100%',
+    position: 'relative',
+    backgroundColor: theme.colors.primary[50],
+    overflow: 'hidden',
+  },
+  cardCoverImg: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  cardCoverFallback: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardCoverEmoji: {
+    fontSize: 36,
+  },
+  cardBadgeContainer: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+  },
+  cardContent: {
+    padding: theme.spacing[2],
+    flex: 1,
+  },
+  clearCartBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.neutral[100],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  clearCartText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.colors.text.secondary,
   },
 });
