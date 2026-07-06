@@ -304,9 +304,9 @@ export default function App() {
           </View>
         </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
         {activeNav === 'menu' && (
-          <View style={styles.pageContent}>
+          <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+            <View style={styles.pageContent}>
             {/* Greeting */}
             <View style={styles.greetingSection}>
               <View style={styles.dateRow}>
@@ -402,7 +402,8 @@ export default function App() {
                 })}
               </View>
             </View>
-          </View>
+            </View>
+          </ScrollView>
         )}
 
         {activeNav === 'recipes' && (
@@ -420,7 +421,6 @@ export default function App() {
             onLogout={() => setUser(null)}
           />
         )}
-      </ScrollView>
 
       {/* Floating Cart Toolbar */}
       {activeNav === 'menu' && activeCartItems.length > 0 && (
