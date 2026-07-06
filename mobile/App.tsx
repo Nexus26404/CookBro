@@ -18,6 +18,7 @@ import { DEMO_RECIPES } from './lib/mockData';
 import { LoginScreen } from './components/screens/LoginScreen';
 import { RecipesScreen } from './components/screens/RecipesScreen';
 import { RecipeDetailsScreen } from './components/screens/RecipeDetailsScreen';
+import { RecipeFormScreen } from './components/screens/RecipeFormScreen';
 import { loadSession, clearSession, UserSession } from './lib/api';
 
 type MealTab = 'breakfast' | 'lunch' | 'dinner';
@@ -48,6 +49,8 @@ export default function App() {
   const [activeNav, setActiveNav] = useState<'menu' | 'recipes' | 'group'>('menu');
   const [activeTab, setActiveTab] = useState<MealTab>(getDefaultMeal);
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
+  const [editingRecipeId, setEditingRecipeId] = useState<string | null>(null);
+  const [isAddingRecipe, setIsAddingRecipe] = useState(false);
   
   // Cart state mapping tab -> list of recipe IDs
   const [cart, setCart] = useState<Record<MealTab, string[]>>({
@@ -203,6 +206,44 @@ export default function App() {
     );
   }
 
+  if (isAddingRecipe) {
+    return (
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.safeArea}>
+          <StatusBar style="dark" />
+          <RecipeFormScreen
+            onBack={() => setIsAddingRecipe(false)}
+            onSaveSuccess={() => {
+              setIsAddingRecipe(false);
+              setActiveNav('recipes');
+            }}
+            user={user}
+          />
+        </SafeAreaView>
+      </SafeAreaProvider>
+    );
+  }
+
+  if (editingRecipeId) {
+    return (
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.safeArea}>
+          <StatusBar style="dark" />
+          <RecipeFormScreen
+            recipeId={editingRecipeId}
+            onBack={() => setEditingRecipeId(null)}
+            onSaveSuccess={() => {
+              setEditingRecipeId(null);
+              setSelectedRecipeId(null);
+              setActiveNav('recipes');
+            }}
+            user={user}
+          />
+        </SafeAreaView>
+      </SafeAreaProvider>
+    );
+  }
+
   if (selectedRecipeId) {
     return (
       <SafeAreaProvider>
@@ -212,7 +253,7 @@ export default function App() {
             recipeId={selectedRecipeId}
             onBack={() => setSelectedRecipeId(null)}
             onEditRecipe={(id) => {
-              Alert.alert('提示', '编辑功能即将在第四阶段上线！');
+              setEditingRecipeId(id);
             }}
             user={user}
           />
@@ -346,7 +387,7 @@ export default function App() {
           <RecipesScreen
             onSelectRecipe={(id) => setSelectedRecipeId(id)}
             onAddRecipe={() => {
-              Alert.alert('提示', '添加菜谱即将在第四阶段上线！');
+              setIsAddingRecipe(true);
             }}
           />
         )}
