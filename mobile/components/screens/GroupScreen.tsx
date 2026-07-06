@@ -29,17 +29,31 @@ interface GroupScreenProps {
   onRefreshGroup: () => void;
   recipes: Recipe[];
   onSelectRecipe?: (id: string) => void;
+  view: 'main' | 'create' | 'join' | 'history' | 'order-detail';
+  setView: (view: 'main' | 'create' | 'join' | 'history' | 'order-detail') => void;
+  selectedOrderId: string | null;
+  setSelectedOrderId: (id: string | null) => void;
 }
 
-export function GroupScreen({ user, onLogout, group, loading, onRefreshGroup, recipes, onSelectRecipe }: GroupScreenProps) {
-  const [view, setView] = useState<'main' | 'create' | 'join' | 'history' | 'order-detail'>('main');
+export function GroupScreen({
+  user,
+  onLogout,
+  group,
+  loading,
+  onRefreshGroup,
+  recipes,
+  onSelectRecipe,
+  view,
+  setView,
+  selectedOrderId,
+  setSelectedOrderId
+}: GroupScreenProps) {
   const [submitting, setSubmitting] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   
   // History view states
   const [historyOrders, setHistoryOrders] = useState<Order[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [checkedIngredients, setCheckedIngredients] = useState<Record<string, boolean>>({});
   
   // Input fields

@@ -10,7 +10,9 @@ import {
   Platform,
   StatusBar as RNStatusBar,
   ActivityIndicator,
-  Image
+  Image,
+  BackHandler,
+  PanResponder
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -46,6 +48,15 @@ function getDefaultMeal(): MealTab {
   return 'dinner';
 }
 
+interface NavState {
+  activeNav: 'menu' | 'recipes' | 'group';
+  selectedRecipeId: string | null;
+  editingRecipeId: string | null;
+  isAddingRecipe: boolean;
+  groupView: 'main' | 'create' | 'join' | 'history' | 'order-detail';
+  selectedOrderId: string | null;
+}
+
 export default function App() {
   const [user, setUser] = useState<UserSession | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -55,6 +66,9 @@ export default function App() {
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const [editingRecipeId, setEditingRecipeId] = useState<string | null>(null);
   const [isAddingRecipe, setIsAddingRecipe] = useState(false);
+  const [groupView, setGroupView] = useState<'main' | 'create' | 'join' | 'history' | 'order-detail'>('main');
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [navHistory, setNavHistory] = useState<NavState[]>([]);
   
   // Cart state mapping tab -> list of recipe IDs
   const [cart, setCart] = useState<Record<MealTab, string[]>>({
@@ -98,6 +112,98 @@ export default function App() {
     setModalVariant(variant);
     setModalOpen(true);
   };
+
+  const pushNav = (next: Partial<NavState>) => {
+    const current: NavState = {
+      activeNav,
+      selectedRecipeId,
+      editingRecipeId,
+      isAddingRecipe,
+      groupView,
+      selectedOrderId,
+    };
+    setNavHistory(prev => [...prev, current]);
+    
+    if (next.activeNav !== undefined) setActiveNav(next.activeNav);
+    if (next.selectedRecipeId !== undefined) setSelectedRecipeId(next.selectedRecipeId);
+    if (next.editingRecipeId !== undefined) setEditingRecipeId(next.editingRecipeId);
+    if (next.isAddingRecipe !== undefined) setIsAddingRecipe(next.isAddingRecipe);
+    if (next.groupView !== undefined) setGroupView(next.groupView);
+    if (next.selectedOrderId !== undefined) setSelectedOrderId(next.selectedOrderId);
+  };
+
+  const handleGlobalGoBack = () => {
+    if (isCartDrawerOpen) {
+      setIsCartDrawerOpen(false);
+      return true;
+    }
+
+    if (navHistory.length > 0) {
+      const prev = navHistory[navHistory.length - 1];
+      setNavHistory(prevHistory => prevHistory.slice(0, -1));
+      
+      setActiveNav(prev.activeNav);
+      setSelectedRecipeId(prev.selectedRecipeId);
+      setEditingRecipeId(prev.editingRecipeId);
+      setIsAddingRecipe(prev.isAddingRecipe);
+      setGroupView(prev.groupView);
+      setSelectedOrderId(prev.selectedOrderId);
+      return true;
+    }
+    
+    Alert.alert(
+      '退出应用',
+      '确定要退出 CookBro 吗？',
+      [
+        { text: '取消', style: 'cancel' },
+        { text: '确定退出', onPress: () => BackHandler.exitApp() }
+      ],
+      { cancelable: true }
+    );
+    return true;
+  };
+
+  // BackHandler setup for hardware back press (Android)
+  useEffect(() => {
+    const onBackPress = () => {
+      return handleGlobalGoBack();
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+
+    return () => {
+      subscription.remove();
+    };
+  }, [navHistory, isCartDrawerOpen, activeNav, selectedRecipeId, editingRecipeId, isAddingRecipe, groupView, selectedOrderId]);
+
+  const handleNavChange = (nextTab: 'menu' | 'recipes' | 'group') => {
+    if (nextTab === activeNav) return;
+    pushNav({ activeNav: nextTab });
+  };
+
+  // PanResponder setup for edge swipe back gesture (iOS & Android)
+  const goBackRef = React.useRef(handleGlobalGoBack);
+  useEffect(() => {
+    goBackRef.current = handleGlobalGoBack;
+  }, [handleGlobalGoBack]);
+
+  const panResponder = React.useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        // Intercept when swiping right starting from left edge
+        const isLeftEdge = gestureState.x0 < 45;
+        const isMovingRight = gestureState.dx > 15;
+        const isHorizontal = Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.5;
+        return isLeftEdge && isMovingRight && isHorizontal;
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        if (gestureState.dx > 60) {
+          goBackRef.current();
+        }
+      },
+    })
+  ).current;
 
   // Load local auth session on startup
   useEffect(() => {
@@ -395,67 +501,46 @@ export default function App() {
     );
   }
 
+  let screenContent = null;
+
   if (isAddingRecipe) {
-    return (
-      <SafeAreaProvider>
-        <SafeAreaView style={styles.safeArea}>
-          <StatusBar style="dark" />
-          <RecipeFormScreen
-            onBack={() => setIsAddingRecipe(false)}
-            onSaveSuccess={() => {
-              setIsAddingRecipe(false);
-              setActiveNav('recipes');
-            }}
-            user={user}
-          />
-        </SafeAreaView>
-      </SafeAreaProvider>
+    screenContent = (
+      <RecipeFormScreen
+        onBack={handleGlobalGoBack}
+        onSaveSuccess={() => {
+          setIsAddingRecipe(false);
+          setActiveNav('recipes');
+        }}
+        user={user}
+      />
     );
-  }
-
-  if (editingRecipeId) {
-    return (
-      <SafeAreaProvider>
-        <SafeAreaView style={styles.safeArea}>
-          <StatusBar style="dark" />
-          <RecipeFormScreen
-            recipeId={editingRecipeId}
-            onBack={() => setEditingRecipeId(null)}
-            onSaveSuccess={() => {
-              setEditingRecipeId(null);
-              setSelectedRecipeId(null);
-              setActiveNav('recipes');
-            }}
-            user={user}
-          />
-        </SafeAreaView>
-      </SafeAreaProvider>
+  } else if (editingRecipeId) {
+    screenContent = (
+      <RecipeFormScreen
+        recipeId={editingRecipeId}
+        onBack={handleGlobalGoBack}
+        onSaveSuccess={() => {
+          setEditingRecipeId(null);
+          setSelectedRecipeId(null);
+          setActiveNav('recipes');
+        }}
+        user={user}
+      />
     );
-  }
-
-  if (selectedRecipeId) {
-    return (
-      <SafeAreaProvider>
-        <SafeAreaView style={styles.safeArea}>
-          <StatusBar style="dark" />
-          <RecipeDetailsScreen
-            recipeId={selectedRecipeId}
-            onBack={() => setSelectedRecipeId(null)}
-            onEditRecipe={(id) => {
-              setEditingRecipeId(id);
-            }}
-            user={user}
-          />
-        </SafeAreaView>
-      </SafeAreaProvider>
+  } else if (selectedRecipeId) {
+    screenContent = (
+      <RecipeDetailsScreen
+        recipeId={selectedRecipeId}
+        onBack={handleGlobalGoBack}
+        onEditRecipe={(id) => {
+          pushNav({ editingRecipeId: id });
+        }}
+        user={user}
+      />
     );
-  }
-
-  return (
-    <SafeAreaProvider>
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar style="dark" />
-        
+  } else {
+    screenContent = (
+      <>
         {/* Brand Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -500,9 +585,10 @@ export default function App() {
 
             {/* Meal Switcher Tabs */}
             <View style={styles.tabBar}>
-              {(Object.entries(MEAL_CONFIG) as [MealTab, typeof mealInfo][]).map(([key, config]) => {
+              {(Object.keys(MEAL_CONFIG) as MealTab[]).map((key) => {
+                const config = MEAL_CONFIG[key];
                 const isActive = activeTab === key;
-                const hasMealOrdered = (order?.meals.find(m => m.type === key)?.recipes || []).length > 0;
+                const hasMealOrdered = order?.meals.some((m) => m.type === key && m.recipes.length > 0);
                 return (
                   <TouchableOpacity
                     key={key}
@@ -525,7 +611,7 @@ export default function App() {
                 <Button variant="secondary" size="sm" onPress={handleRandomRecipe}>
                   🎲 随机点菜
                 </Button>
-                <TouchableOpacity onPress={() => setActiveNav('recipes')}>
+                <TouchableOpacity onPress={() => handleNavChange('recipes')}>
                   <Text style={styles.viewAllText}>查看全部 →</Text>
                 </TouchableOpacity>
               </View>
@@ -591,9 +677,9 @@ export default function App() {
 
         {activeNav === 'recipes' && (
           <RecipesScreen
-            onSelectRecipe={(id) => setSelectedRecipeId(id)}
+            onSelectRecipe={(id) => pushNav({ selectedRecipeId: id })}
             onAddRecipe={() => {
-              setIsAddingRecipe(true);
+              pushNav({ isAddingRecipe: true });
             }}
           />
         )}
@@ -606,9 +692,25 @@ export default function App() {
             loading={groupLoading}
             onRefreshGroup={fetchGroup}
             recipes={recipes}
-            onSelectRecipe={(id) => setSelectedRecipeId(id)}
+            onSelectRecipe={(id) => pushNav({ selectedRecipeId: id })}
+            view={groupView}
+            setView={(v) => pushNav({ groupView: v })}
+            selectedOrderId={selectedOrderId}
+            setSelectedOrderId={(id) => pushNav({ selectedOrderId: id })}
           />
         )}
+      </>
+    );
+  }
+
+  return (
+    <SafeAreaProvider>
+      <View style={{ flex: 1 }} {...panResponder.panHandlers}>
+        <SafeAreaView style={styles.safeArea}>
+          <StatusBar style="dark" />
+          {screenContent}
+        </SafeAreaView>
+      </View>
 
       {/* Drawer Backdrop Overlay */}
       {activeNav === 'menu' && activeCartItems.length > 0 && isCartDrawerOpen && (
@@ -714,31 +816,33 @@ export default function App() {
       )}
 
       {/* Bottom Navigation Sticky Bar */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => setActiveNav('menu')}
-        >
-          <Text style={[styles.navIcon, activeNav === 'menu' ? styles.navTextActive : null]}>🍳</Text>
-          <Text style={[styles.navLabel, activeNav === 'menu' ? styles.navTextActive : null]}>点菜</Text>
-        </TouchableOpacity>
+      {!selectedRecipeId && !editingRecipeId && !isAddingRecipe && (
+        <View style={styles.bottomNav}>
+          <TouchableOpacity
+            style={styles.navItem}
+            onPress={() => handleNavChange('menu')}
+          >
+            <Text style={[styles.navIcon, activeNav === 'menu' ? styles.navTextActive : null]}>🍳</Text>
+            <Text style={[styles.navLabel, activeNav === 'menu' ? styles.navTextActive : null]}>点菜</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => setActiveNav('recipes')}
-        >
-          <Text style={[styles.navIcon, activeNav === 'recipes' ? styles.navTextActive : null]}>📖</Text>
-          <Text style={[styles.navLabel, activeNav === 'recipes' ? styles.navTextActive : null]}>菜谱</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.navItem}
+            onPress={() => handleNavChange('recipes')}
+          >
+            <Text style={[styles.navIcon, activeNav === 'recipes' ? styles.navTextActive : null]}>📖</Text>
+            <Text style={[styles.navLabel, activeNav === 'recipes' ? styles.navTextActive : null]}>菜谱</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => setActiveNav('group')}
-        >
-          <Text style={[styles.navIcon, activeNav === 'group' ? styles.navTextActive : null]}>👥</Text>
-          <Text style={[styles.navLabel, activeNav === 'group' ? styles.navTextActive : null]}>家庭</Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            style={styles.navItem}
+            onPress={() => handleNavChange('group')}
+          >
+            <Text style={[styles.navIcon, activeNav === 'group' ? styles.navTextActive : null]}>👥</Text>
+            <Text style={[styles.navLabel, activeNav === 'group' ? styles.navTextActive : null]}>家庭</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Reusable Custom Alert Modals */}
       <AlertModal
@@ -752,8 +856,7 @@ export default function App() {
         confirmText="确认"
         cancelText="取消"
       />
-    </SafeAreaView>
-  </SafeAreaProvider>
+    </SafeAreaProvider>
   );
 }
 
