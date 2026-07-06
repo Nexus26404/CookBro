@@ -618,6 +618,8 @@ export default function App() {
             group={group}
             loading={groupLoading}
             onRefreshGroup={fetchGroup}
+            recipes={recipes}
+            onSelectRecipe={(id) => setSelectedRecipeId(id)}
           />
         )}
 

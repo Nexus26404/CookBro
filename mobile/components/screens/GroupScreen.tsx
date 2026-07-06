@@ -9,13 +9,15 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
-  Platform
+  Platform,
+  Image
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../theme';
 import { Card, Badge, Button, Input, AlertModal } from '../ui';
 import { apiFetch, clearSession, UserSession } from '../../lib/api';
-import { CookGroup, UserProfile } from '../../lib/types';
+import { CookGroup, UserProfile, Recipe, Order } from '../../lib/types';
 
 const { width } = Dimensions.get('window');
 
@@ -25,12 +27,20 @@ interface GroupScreenProps {
   group: CookGroup | null;
   loading: boolean;
   onRefreshGroup: () => void;
+  recipes: Recipe[];
+  onSelectRecipe?: (id: string) => void;
 }
 
-export function GroupScreen({ user, onLogout, group, loading, onRefreshGroup }: GroupScreenProps) {
-  const [view, setView] = useState<'main' | 'create' | 'join'>('main');
+export function GroupScreen({ user, onLogout, group, loading, onRefreshGroup, recipes, onSelectRecipe }: GroupScreenProps) {
+  const [view, setView] = useState<'main' | 'create' | 'join' | 'history' | 'order-detail'>('main');
   const [submitting, setSubmitting] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  
+  // History view states
+  const [historyOrders, setHistoryOrders] = useState<Order[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [checkedIngredients, setCheckedIngredients] = useState<Record<string, boolean>>({});
   
   // Input fields
   const [groupName, setGroupName] = useState('');
@@ -66,6 +76,57 @@ export function GroupScreen({ user, onLogout, group, loading, onRefreshGroup }: 
     setConfirmAction(() => onConfirm);
     setConfirmVariant(variant);
     setConfirmOpen(true);
+  };
+  const fetchHistoryOrders = () => {
+    if (!group?.id) return;
+    setHistoryLoading(true);
+    apiFetch(`/api/orders?groupId=${group.id}`)
+      .then(async (res) => {
+        if (res.ok) {
+          const data = await res.json();
+          setHistoryOrders(data);
+        } else {
+          setHistoryOrders([]);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to load history orders', err);
+        setHistoryOrders([]);
+      })
+      .finally(() => {
+        setHistoryLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    if (view === 'history') {
+      fetchHistoryOrders();
+    }
+  }, [view]);
+
+  // Load todo check states when selectedOrderId changes
+  useEffect(() => {
+    if (view !== 'order-detail' || !selectedOrderId) return;
+    AsyncStorage.getItem(`cookbro_shopping_${selectedOrderId}`)
+      .then((saved) => {
+        if (saved) {
+          setCheckedIngredients(JSON.parse(saved));
+        } else {
+          setCheckedIngredients({});
+        }
+      })
+      .catch((err) => console.warn('Failed to load todo state:', err));
+  }, [selectedOrderId, view]);
+
+  const handleToggleCheck = async (ingName: string) => {
+    if (!selectedOrderId) return;
+    const updated = { ...checkedIngredients, [ingName]: !checkedIngredients[ingName] };
+    setCheckedIngredients(updated);
+    try {
+      await AsyncStorage.setItem(`cookbro_shopping_${selectedOrderId}`, JSON.stringify(updated));
+    } catch (err) {
+      console.warn('Failed to save todo state:', err);
+    }
   };
 
   const handleCreateGroup = async () => {
@@ -314,6 +375,270 @@ export function GroupScreen({ user, onLogout, group, loading, onRefreshGroup }: 
     );
   }
 
+  // --- HISTORY VIEW ---
+  if (view === 'history') {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => setView('main')} style={styles.headerBackBtn}>
+            <Text style={styles.headerBackIcon}>←</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>订单历史</Text>
+          <View style={{ width: 40 }} />
+        </View>
+
+        <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+          {!group ? (
+            <Card padding="lg" style={styles.emptyCard}>
+              <Text style={styles.emptyCardIcon}>🏠</Text>
+              <Text style={styles.emptyCardTitle}>您还没有加入家庭</Text>
+              <Text style={styles.emptyCardDesc}>加入或创建一个家庭以开始记录订单</Text>
+              <Button variant="primary" fullWidth onPress={() => setView('main')}>
+                返回家庭页面
+              </Button>
+            </Card>
+          ) : historyLoading ? (
+            <View style={styles.centerContainer}>
+              <ActivityIndicator size="large" color={theme.colors.primary[500]} />
+              <Text style={styles.loadingText}>正在加载历史订单...</Text>
+            </View>
+          ) : historyOrders.length === 0 ? (
+            <Card padding="lg" style={styles.emptyCard}>
+              <Text style={styles.emptyCardIcon}>📝</Text>
+              <Text style={styles.emptyCardTitle}>暂无订单记录</Text>
+              <Text style={styles.emptyCardDesc}>今天点一些菜，订单就会出现在这里啦！</Text>
+              <Button variant="primary" fullWidth onPress={() => setView('main')}>
+                返回家庭页面
+              </Button>
+            </Card>
+          ) : (
+            <View style={styles.historyList}>
+              {historyOrders.map((ord) => {
+                const orderDate = new Date(ord.date);
+                const formattedDate = `${orderDate.getMonth() + 1}月${orderDate.getDate()}日`;
+                
+                const recipeMap = recipes.reduce<Record<string, Recipe>>((acc, r) => {
+                  acc[r.id] = r;
+                  return acc;
+                }, {});
+
+                return (
+                  <TouchableOpacity
+                    key={ord.id}
+                    onPress={() => {
+                      setSelectedOrderId(ord.id);
+                      setView('order-detail');
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Card style={styles.historyCard} padding="md">
+                      <View style={styles.historyCardHeader}>
+                        <Text style={styles.historyCardDate}>{formattedDate}</Text>
+                        <Badge variant="success">已确认</Badge>
+                      </View>
+                      
+                      <View style={styles.historyCardBody}>
+                        {ord.meals.map((meal) => {
+                          const mealLabels: Record<string, { label: string; icon: string }> = {
+                            breakfast: { label: '早餐', icon: '🍳' },
+                            lunch: { label: '午餐', icon: '🍜' },
+                            dinner: { label: '晚餐', icon: '🍲' },
+                          };
+                          const mInfo = mealLabels[meal.type] || { label: meal.type, icon: '🍽️' };
+                          return (
+                            <View key={meal.type} style={styles.historyMealRow}>
+                              <View style={styles.historyMealType}>
+                                <Text style={styles.historyMealIcon}>{mInfo.icon}</Text>
+                                <Text style={styles.historyMealLabel}>{mInfo.label}</Text>
+                              </View>
+                              <View style={styles.historyRecipesList}>
+                                {meal.recipes.map((rid) => {
+                                  const r = recipeMap[rid];
+                                  return (
+                                    <View key={rid} style={styles.historyRecipeBadge}>
+                                      <Text style={styles.historyRecipeText}>
+                                        {r?.icon || '🍳'} {r?.name || '已删除菜品'}
+                                      </Text>
+                                    </View>
+                                  );
+                                })}
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </Card>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </ScrollView>
+
+        <AlertModal
+          visible={alertOpen}
+          onClose={() => setAlertOpen(false)}
+          title={alertTitle}
+          description={alertDesc}
+          type={alertType}
+        />
+      </View>
+    );
+  }
+
+  // --- ORDER DETAIL VIEW ---
+  if (view === 'order-detail') {
+    const selectedOrder = historyOrders.find(o => o.id === selectedOrderId);
+    const orderDate = selectedOrder ? new Date(selectedOrder.date) : new Date();
+    const formattedDate = `${orderDate.getMonth() + 1}月${orderDate.getDate()}日`;
+    const fullDateStr = `${orderDate.getFullYear()}年${orderDate.getMonth() + 1}月${orderDate.getDate()}日`;
+
+    const recipeMap = recipes.reduce<Record<string, Recipe>>((acc, r) => {
+      acc[r.id] = r;
+      return acc;
+    }, {});
+
+    // Aggregate ingredients
+    const ingredientMap: Record<string, string[]> = {};
+    if (selectedOrder) {
+      selectedOrder.meals.forEach((meal) => {
+        meal.recipes.forEach((recipeId) => {
+          const r = recipeMap[recipeId];
+          if (r && r.ingredients) {
+            r.ingredients.forEach((ing) => {
+              const name = ing.name.trim();
+              if (name) {
+                if (!ingredientMap[name]) {
+                  ingredientMap[name] = [];
+                }
+                if (ing.amount) {
+                  ingredientMap[name].push(ing.amount);
+                }
+              }
+            });
+          }
+        });
+      });
+    }
+
+    const aggregatedIngredients = Object.keys(ingredientMap).map((name) => ({
+      name,
+      amounts: ingredientMap[name],
+    }));
+
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => setView('history')} style={styles.headerBackBtn}>
+            <Text style={styles.headerBackIcon}>←</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{formattedDate}订单详情</Text>
+          <View style={{ width: 40 }} />
+        </View>
+
+        <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+          {/* Info Card */}
+          <View style={styles.infoSection}>
+            <Text style={styles.dateTitle}>{fullDateStr}</Text>
+            <View style={styles.statusRow}>
+              <Text style={styles.statusLabel}>订单状态:</Text>
+              <Badge variant="success">已确认</Badge>
+            </View>
+          </View>
+
+          {/* Today Recipes */}
+          {selectedOrder && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>今日菜品</Text>
+              <View style={styles.mealsContainer}>
+                {selectedOrder.meals.map((meal) => {
+                  const mealLabels: Record<string, { label: string; icon: string }> = {
+                    breakfast: { label: '早餐', icon: '🍳' },
+                    lunch: { label: '午餐', icon: '🍜' },
+                    dinner: { label: '晚餐', icon: '🍲' },
+                  };
+                  const mInfo = mealLabels[meal.type] || { label: meal.type, icon: '🍽️' };
+                  return (
+                    <View key={meal.type} style={styles.mealBlock}>
+                      <Text style={styles.mealHeader}>
+                        <Text style={styles.mealIcon}>{mInfo.icon} </Text>
+                        {mInfo.label}
+                      </Text>
+                      <View style={styles.recipesGrid}>
+                        {meal.recipes.map((rid) => {
+                          const r = recipeMap[rid];
+                          return r ? (
+                            <Card 
+                              key={rid}
+                              padding="sm" 
+                              style={styles.recipeCard}
+                              onPress={onSelectRecipe ? () => onSelectRecipe(rid) : undefined}
+                            >
+                              <Text style={styles.recipeIcon}>{r.icon || '🍳'}</Text>
+                              <Text style={styles.recipeName} numberOfLines={1}>{r.name}</Text>
+                            </Card>
+                          ) : (
+                            <Card key={rid} padding="sm" style={styles.recipeCardDisabled}>
+                              <Text style={styles.recipeIcon}>🍳</Text>
+                              <Text style={styles.recipeNameDisabled} numberOfLines={1}>已删除的菜品</Text>
+                            </Card>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
+          {/* Todo List */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>采购清单 (TodoList)</Text>
+            {aggregatedIngredients.length === 0 ? (
+              <Card padding="md" style={styles.emptyIngredientsCard}>
+                <Text style={styles.emptyText}>无可采购食材（请检查菜品是否有配料）</Text>
+              </Card>
+            ) : (
+              <Card padding="none" style={styles.todoCard}>
+                <View style={styles.todoList}>
+                  {aggregatedIngredients.map((ing) => {
+                    const isChecked = !!checkedIngredients[ing.name];
+                    const amountsText = ing.amounts.length > 0 ? ` (${ing.amounts.join(' + ')})` : '';
+                    return (
+                      <TouchableOpacity
+                        key={ing.name}
+                        style={[styles.todoItem, isChecked ? styles.todoItemChecked : null]}
+                        onPress={() => handleToggleCheck(ing.name)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.checkbox, isChecked ? styles.checkboxChecked : null]}>
+                          {isChecked && <Text style={styles.checkboxText}>✓</Text>}
+                        </View>
+                        <Text style={[styles.todoText, isChecked ? styles.todoTextChecked : null]}>
+                          {ing.name}
+                          <Text style={styles.todoAmount}>{amountsText}</Text>
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </Card>
+            )}
+          </View>
+        </ScrollView>
+
+        <AlertModal
+          visible={alertOpen}
+          onClose={() => setAlertOpen(false)}
+          title={alertTitle}
+          description={alertDesc}
+          type={alertType}
+        />
+      </View>
+    );
+  }
+
   const isCreator = group && group.createdBy === user.uid;
 
   // --- MAIN VIEW ---
@@ -353,6 +678,21 @@ export function GroupScreen({ user, onLogout, group, loading, onRefreshGroup }: 
                   </View>
                 </View>
               </View>
+
+              <View style={styles.divider} />
+
+              {/* Order History entrance */}
+              <TouchableOpacity
+                style={styles.historyEntranceBtn}
+                onPress={() => setView('history')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.historyEntranceLeft}>
+                  <Text style={styles.historyEntranceIcon}>📜</Text>
+                  <Text style={styles.historyEntranceLabel}>查看今日及历史点菜记录</Text>
+                </View>
+                <Text style={styles.historyEntranceArrow}>订单历史 →</Text>
+              </TouchableOpacity>
 
               <View style={styles.divider} />
 
@@ -787,5 +1127,250 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: theme.spacing[5],
     lineHeight: 16,
+  },
+  historyEntranceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: theme.spacing[3],
+    paddingHorizontal: theme.spacing[3],
+    backgroundColor: theme.colors.primary[50] + '40',
+    borderRadius: theme.radius.lg,
+    borderWidth: 1.5,
+    borderColor: theme.colors.primary[100],
+    marginBottom: theme.spacing[3],
+  },
+  historyEntranceLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  historyEntranceIcon: {
+    fontSize: 20,
+    marginRight: theme.spacing[2],
+  },
+  historyEntranceLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.colors.text.secondary,
+  },
+  historyEntranceArrow: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.colors.primary[500],
+  },
+  historyList: {
+    paddingBottom: theme.spacing[8],
+  },
+  historyCard: {
+    marginBottom: theme.spacing[3],
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: theme.colors.border.light,
+  },
+  historyCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border.light,
+    paddingBottom: theme.spacing[2],
+    marginBottom: theme.spacing[2],
+  },
+  historyCardDate: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: theme.colors.text.primary,
+  },
+  historyCardBody: {
+    gap: theme.spacing[3],
+  },
+  historyMealRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  historyMealType: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: 65,
+    marginTop: 2,
+  },
+  historyMealIcon: {
+    fontSize: 16,
+    marginRight: 4,
+  },
+  historyMealLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.colors.text.secondary,
+  },
+  historyRecipesList: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  historyRecipeBadge: {
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: theme.radius.full,
+    backgroundColor: theme.colors.neutral[100],
+  },
+  historyRecipeText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: theme.colors.text.primary,
+  },
+  infoSection: {
+    backgroundColor: '#ffffff',
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing[4],
+    borderWidth: 1,
+    borderColor: theme.colors.border.light,
+    marginBottom: theme.spacing[4],
+  },
+  dateTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: theme.colors.text.primary,
+    marginBottom: theme.spacing[2],
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  statusLabel: {
+    fontSize: 13,
+    color: theme.colors.text.secondary,
+  },
+  section: {
+    marginBottom: theme.spacing[5],
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: theme.colors.text.secondary,
+    marginBottom: theme.spacing[3],
+  },
+  mealsContainer: {
+    gap: theme.spacing[4],
+  },
+  mealBlock: {
+    backgroundColor: '#ffffff',
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing[4],
+    borderWidth: 1,
+    borderColor: theme.colors.border.light,
+  },
+  mealHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    fontSize: 14,
+    fontWeight: '700',
+    color: theme.colors.text.primary,
+    marginBottom: theme.spacing[3],
+  },
+  mealIcon: {
+    fontSize: 18,
+    marginRight: 6,
+  },
+  recipesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing[3],
+  },
+  recipeCard: {
+    width: (width - theme.spacing[4] * 2 - theme.spacing[4] * 2 - theme.spacing[3]) / 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: theme.spacing[2],
+    backgroundColor: theme.colors.neutral[50],
+    borderWidth: 1,
+    borderColor: theme.colors.border.light,
+  },
+  recipeIcon: {
+    fontSize: 18,
+    marginRight: 6,
+  },
+  recipeName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.colors.text.primary,
+    flex: 1,
+  },
+  recipeCardDisabled: {
+    width: (width - theme.spacing[4] * 2 - theme.spacing[4] * 2 - theme.spacing[3]) / 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: theme.spacing[2],
+    backgroundColor: theme.colors.neutral[100],
+    borderWidth: 1,
+    borderColor: theme.colors.border.light,
+    opacity: 0.6,
+  },
+  recipeNameDisabled: {
+    fontSize: 12,
+    color: theme.colors.text.tertiary,
+    flex: 1,
+  },
+  emptyIngredientsCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    fontSize: 13,
+    color: theme.colors.text.tertiary,
+  },
+  todoCard: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: theme.colors.border.light,
+    borderRadius: theme.radius.lg,
+  },
+  todoList: {
+    paddingVertical: theme.spacing[2],
+  },
+  todoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: theme.spacing[3],
+    paddingHorizontal: theme.spacing[4],
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border.light,
+  },
+  todoItemChecked: {
+    backgroundColor: theme.colors.neutral[50],
+  },
+  checkbox: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border.default,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  checkboxChecked: {
+    backgroundColor: theme.colors.success.default,
+    borderColor: theme.colors.success.default,
+  },
+  checkboxText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  todoText: {
+    fontSize: 13,
+    color: theme.colors.text.primary,
+    flex: 1,
+  },
+  todoTextChecked: {
+    color: theme.colors.text.tertiary,
+    textDecorationLine: 'line-through',
+  },
+  todoAmount: {
+    fontSize: 12,
+    color: theme.colors.text.tertiary,
   },
 });
