@@ -71,7 +71,7 @@ export default function App() {
   const [orderCounts, setOrderCounts] = useState<Record<string, number>>({});
   const [confirmingOrder, setConfirmingOrder] = useState(false);
 
-  const [isBarCollapsed, setIsBarCollapsed] = useState(false);
+  const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
 
   // Custom AlertModal state & trigger helpers (Phase 5)
   const [modalOpen, setModalOpen] = useState(false);
@@ -270,11 +270,13 @@ export default function App() {
 
   const activeCartItems = cart[activeTab] || [];
   const activeOrderedItems = order?.meals.find((m) => m.type === activeTab)?.recipes || [];
+  const cartRecipes = activeCartItems.map((id) => recipes.find((r) => r.id === id)).filter(Boolean) as Recipe[];
+  const totalTime = cartRecipes.reduce((sum, r) => sum + r.cookTime + (r.prepTime || 0), 0);
 
-  // Auto-expand cart bar when items count change
+  // Auto-close cart drawer when items count becomes 0
   useEffect(() => {
-    if (activeCartItems.length > 0) {
-      setIsBarCollapsed(false);
+    if (activeCartItems.length === 0) {
+      setIsCartDrawerOpen(false);
     }
   }, [activeCartItems.length]);
 
@@ -619,46 +621,107 @@ export default function App() {
           />
         )}
 
-      {/* Floating Cart Toolbar */}
-      {activeNav === 'menu' && activeCartItems.length > 0 && (
-        isBarCollapsed ? (
-          <TouchableOpacity
-            style={styles.collapsedCartBtn}
-            onPress={() => setIsBarCollapsed(false)}
-          >
-            <Text style={styles.collapsedCartIcon}>🛒</Text>
-            <View style={styles.collapsedCartBadge}>
-              <Text style={styles.collapsedCartBadgeText}>{activeCartItems.length}</Text>
-            </View>
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.floatingCartBar}>
-            <TouchableOpacity 
-              style={styles.cartInfoBtn}
-              onPress={() => setIsBarCollapsed(true)}
-            >
-              <Text style={styles.cartInfoIcon}>🛒</Text>
-              <Text style={styles.cartInfoText}>已选 {activeCartItems.length} 道菜</Text>
-              <Text style={styles.cartChevron}>▲</Text>
-            </TouchableOpacity>
+      {/* Drawer Backdrop Overlay */}
+      {activeNav === 'menu' && activeCartItems.length > 0 && isCartDrawerOpen && (
+        <TouchableOpacity 
+          style={styles.drawerOverlay}
+          activeOpacity={1}
+          onPress={() => setIsCartDrawerOpen(false)}
+        />
+      )}
 
-            <TouchableOpacity 
-              style={styles.clearCartBtn}
-              onPress={handleClearCart}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.clearCartText}>🗑️ 清空</Text>
-            </TouchableOpacity>
-            
+      {/* Floating Cart Drawer (Bottom Sheet) */}
+      {activeNav === 'menu' && activeCartItems.length > 0 && isCartDrawerOpen && (
+        <View style={styles.cartDrawer}>
+          <View style={styles.cartDrawerHandle} />
+          
+          <View style={styles.cartDrawerHeader}>
+            <View style={styles.cartDrawerHeaderLeft}>
+              <Text style={styles.cartDrawerEmoji}>🛒</Text>
+              <View>
+                <Text style={styles.cartDrawerTitle}>{mealInfo.label}购物车</Text>
+                <Text style={styles.cartDrawerSubtitle}>
+                  {activeCartItems.length} 道菜 · 预计 {totalTime} 分钟
+                </Text>
+              </View>
+            </View>
+            <View style={styles.cartDrawerHeaderRight}>
+              <TouchableOpacity 
+                onPress={handleClearCart}
+                style={styles.clearCartBtn}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.clearCartText}>清空</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <ScrollView style={styles.cartDrawerList} showsVerticalScrollIndicator={false}>
+            {activeCartItems.map((id) => {
+              const recipe = recipes.find(r => r.id === id);
+              if (!recipe) return null;
+              const hasCoverImg = recipe.images && recipe.images.length > 0;
+              return (
+                <View key={id} style={styles.cartDrawerItem}>
+                  <View style={styles.cartDrawerItemLeft}>
+                    {hasCoverImg ? (
+                      <Image source={{ uri: recipe.images[0] }} style={styles.cartDrawerItemThumb} />
+                    ) : (
+                      <View style={styles.cartDrawerItemThumbFallback}>
+                        <Text style={styles.cartDrawerItemIcon}>{recipe.icon || '🍳'}</Text>
+                      </View>
+                    )}
+                    <View style={styles.cartDrawerItemInfo}>
+                      <Text style={styles.cartDrawerItemName} numberOfLines={1}>{recipe.name}</Text>
+                      <Text style={styles.cartDrawerItemMeta}>{recipe.cookTime}分钟 · {recipe.category}</Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity 
+                    onPress={() => toggleRecipe(id)}
+                    style={styles.cartDrawerItemRemove}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.cartDrawerItemRemoveText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+          </ScrollView>
+
+          <View style={styles.cartDrawerFooter}>
             <Button
               variant="primary"
-              size="md"
+              fullWidth
+              size="lg"
               onPress={handleConfirmOrder}
             >
               确认点菜 👉
             </Button>
           </View>
-        )
+        </View>
+      )}
+
+      {/* Floating Cart Toolbar (only visible when drawer is closed) */}
+      {activeNav === 'menu' && activeCartItems.length > 0 && !isCartDrawerOpen && (
+        <View style={styles.floatingCartBar}>
+          <TouchableOpacity 
+            style={styles.cartInfoBtn}
+            onPress={() => setIsCartDrawerOpen(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.cartInfoIcon}>🛒</Text>
+            <Text style={styles.cartInfoText}>已选 {activeCartItems.length} 道菜</Text>
+            <Text style={styles.cartChevron}>▲</Text>
+          </TouchableOpacity>
+          
+          <Button
+            variant="primary"
+            size="md"
+            onPress={handleConfirmOrder}
+          >
+            确认点菜 👉
+          </Button>
+        </View>
       )}
 
       {/* Bottom Navigation Sticky Bar */}
@@ -1131,17 +1194,169 @@ const styles = StyleSheet.create({
     padding: theme.spacing[2],
     flex: 1,
   },
+  drawerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    zIndex: 98,
+  },
   clearCartBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingVertical: theme.spacing[1],
+    paddingHorizontal: theme.spacing[3],
     borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.neutral[100],
+    backgroundColor: theme.colors.danger.light + '12',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: theme.spacing[2],
   },
   clearCartText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
+    color: theme.colors.danger.dark,
+  },
+  cartDrawer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: theme.radius['2xl'],
+    borderTopRightRadius: theme.radius['2xl'],
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border.light,
+    maxHeight: '60%',
+    zIndex: 99,
+    paddingHorizontal: theme.spacing[5],
+    paddingTop: theme.spacing[2],
+    paddingBottom: Platform.OS === 'ios' ? 34 : theme.spacing[5],
+    // Shadow
+    shadowColor: '#1c1917',
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  cartDrawerHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: theme.colors.neutral[300],
+    alignSelf: 'center',
+    marginBottom: theme.spacing[3],
+  },
+  cartDrawerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: theme.spacing[3],
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border.light,
+  },
+  cartDrawerHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  cartDrawerEmoji: {
+    fontSize: 24,
+    marginRight: 10,
+  },
+  cartDrawerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: theme.colors.text.primary,
+  },
+  cartDrawerSubtitle: {
+    fontSize: 12,
+    color: theme.colors.text.tertiary,
+    marginTop: 2,
+  },
+  cartDrawerHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cartDrawerCloseBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: theme.colors.neutral[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cartDrawerCloseText: {
+    fontSize: 12,
+    fontWeight: 'bold',
     color: theme.colors.text.secondary,
+  },
+  cartDrawerList: {
+    marginVertical: theme.spacing[2],
+  },
+  cartDrawerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: theme.spacing[3],
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border.light,
+  },
+  cartDrawerItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  cartDrawerItemThumb: {
+    width: 48,
+    height: 48,
+    borderRadius: theme.radius.lg,
+    marginRight: theme.spacing[3],
+  },
+  cartDrawerItemThumbFallback: {
+    width: 48,
+    height: 48,
+    borderRadius: theme.radius.lg,
+    backgroundColor: theme.colors.primary[50],
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: theme.spacing[3],
+  },
+  cartDrawerItemIcon: {
+    fontSize: 22,
+  },
+  cartDrawerItemInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  cartDrawerItemName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: theme.colors.text.primary,
+  },
+  cartDrawerItemMeta: {
+    fontSize: 12,
+    color: theme.colors.text.tertiary,
+    marginTop: 2,
+  },
+  cartDrawerItemRemove: {
+    width: 36,
+    height: 36,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.neutral[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: theme.spacing[2],
+  },
+  cartDrawerItemRemoveText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: theme.colors.text.tertiary,
+  },
+  cartDrawerFooter: {
+    marginTop: theme.spacing[3],
+    paddingTop: theme.spacing[3],
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border.light,
   },
 });
