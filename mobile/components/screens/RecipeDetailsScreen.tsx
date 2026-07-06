@@ -38,8 +38,7 @@ export function RecipeDetailsScreen({ recipeId, onBack, onEditRecipe, user }: Re
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(false);
 
-  // Servings count state (adjuster)
-  const [servings, setServings] = useState(2);
+
 
 
 
@@ -52,7 +51,6 @@ export function RecipeDetailsScreen({ recipeId, onBack, onEditRecipe, user }: Re
         if (res.ok) {
           const data = await res.json();
           setRecipe(data);
-          setServings(data.servings || 2);
           setError('');
         } else {
           throw new Error('Recipe not found');
@@ -87,7 +85,6 @@ export function RecipeDetailsScreen({ recipeId, onBack, onEditRecipe, user }: Re
             ]
           };
           setRecipe(mockDetail);
-          setServings(mockDetail.servings || 2);
           setError('');
         } else {
           setError('菜谱加载失败，请返回重试');
@@ -120,47 +117,6 @@ export function RecipeDetailsScreen({ recipeId, onBack, onEditRecipe, user }: Re
 
   const isOwner = recipe.createdBy === user.uid || recipe.createdBy === 'system';
   const diffInfo = DIFFICULTY_MAP[recipe.difficulty] || DIFFICULTY_MAP.easy;
-
-  const handleAdjustServings = (change: number) => {
-    setServings(prev => {
-      const next = prev + change;
-      return next < 1 ? 1 : next;
-    });
-  };
-
-  // Helper to scale ingredients amounts based on servings adjuster
-  const getScaledAmount = (amountStr: string) => {
-    if (!amountStr) return '';
-    
-    // Regular expression to match leading numbers (integers or floats/fractions)
-    // Matches: 200, 2.5, 1/2
-    const numRegex = /^(\d+(\.\d+)?|\d+\/\d+)/;
-    const match = amountStr.trim().match(numRegex);
-    
-    if (!match) return amountStr; // E.g. "适量", "少许" -> keep string intact
-
-    const numStr = match[0];
-    const restStr = amountStr.slice(numStr.length);
-    const originalServings = recipe.servings || 2;
-    
-    let parsedNum = 0;
-    if (numStr.includes('/')) {
-      const parts = numStr.split('/');
-      parsedNum = parseFloat(parts[0]) / parseFloat(parts[1]);
-    } else {
-      parsedNum = parseFloat(numStr);
-    }
-    
-    const scaledNum = (parsedNum * servings) / originalServings;
-    
-    // Format float numbers nicely to at most 2 decimal places
-    let formattedNum = scaledNum % 1 === 0 ? scaledNum.toString() : scaledNum.toFixed(1);
-    if (formattedNum.endsWith('.0')) {
-      formattedNum = formattedNum.slice(0, -2);
-    }
-    
-    return `${formattedNum}${restStr}`;
-  };
 
 
 
@@ -273,35 +229,9 @@ export function RecipeDetailsScreen({ recipeId, onBack, onEditRecipe, user }: Re
 
           <Card padding="sm" style={styles.specCard}>
             <Text style={styles.specValue}>{recipe.servings}人份</Text>
-            <Text style={styles.specLabel}>初始</Text>
+            <Text style={styles.specLabel}>分量</Text>
           </Card>
         </View>
-
-        {/* Dynamic Servings Adjuster */}
-        <Card padding="md" style={styles.adjusterCard}>
-          <Text style={styles.adjusterTitle}>🍽️ 烹饪分量调节器</Text>
-          <View style={styles.adjusterControls}>
-            <TouchableOpacity
-              style={styles.adjusterBtn}
-              onPress={() => handleAdjustServings(-1)}
-            >
-              <Text style={styles.adjusterBtnText}>－</Text>
-            </TouchableOpacity>
-            
-            <View style={styles.adjustValueContainer}>
-              <Text style={styles.adjustValueText}>{servings}</Text>
-              <Text style={styles.adjustValueLabel}>人份</Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.adjusterBtn}
-              onPress={() => handleAdjustServings(1)}
-            >
-              <Text style={styles.adjusterBtnText}>＋</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.adjusterHelper}>* 调节人份后，下方用料分量将为您自动换算比例</Text>
-        </Card>
 
         {/* Utensils List */}
         {recipe.utensils && recipe.utensils.length > 0 ? (
@@ -339,7 +269,7 @@ export function RecipeDetailsScreen({ recipeId, onBack, onEditRecipe, user }: Re
                       {ing.name}
                     </Text>
                     <Text style={styles.ingredientAmount}>
-                      {getScaledAmount(ing.amount)}
+                      {ing.amount}
                     </Text>
                   </View>
                 );
@@ -567,59 +497,7 @@ const styles = StyleSheet.create({
     color: theme.colors.text.tertiary,
     fontWeight: '600',
   },
-  adjusterCard: {
-    marginHorizontal: theme.spacing[4],
-    marginTop: theme.spacing[4],
-    alignItems: 'center',
-  },
-  adjusterTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: theme.colors.text.secondary,
-    marginBottom: theme.spacing[3],
-  },
-  adjusterControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing[6],
-  },
-  adjusterBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border.default,
-    backgroundColor: theme.colors.bg.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  adjusterBtnText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: theme.colors.text.secondary,
-  },
-  adjustValueContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 2,
-  },
-  adjustValueText: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: theme.colors.primary[500],
-  },
-  adjustValueLabel: {
-    fontSize: 12,
-    color: theme.colors.text.secondary,
-    fontWeight: '600',
-  },
-  adjusterHelper: {
-    fontSize: 10,
-    color: theme.colors.text.tertiary,
-    marginTop: theme.spacing[3],
-    fontStyle: 'italic',
-  },
+
   sectionContainer: {
     paddingHorizontal: theme.spacing[4],
     marginTop: theme.spacing[5],
