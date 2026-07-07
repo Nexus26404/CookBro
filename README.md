@@ -96,5 +96,55 @@ Open [http://localhost:3000](http://localhost:3000) or `http://<your-lan-ip>:300
 
 ---
 
+## 📱 Mobile App (React Native & Expo)
+
+The project includes a native mobile application inside the `mobile/` directory, built with **React Native** and **Expo**. It syncs in real-time with the Next.js backend and supports offline failovers.
+
+### 📱 Key Mobile Features
+- **Real-Time Web Synchronization**: Syncs orders, recipe library updates, and group changes directly via client-side API requests.
+- **Offline Mode Failover**: If the backend API server is unreachable, the app automatically allows users to create or join local offline family groups using `AsyncStorage`.
+- **Order History & Details**: Check past meals and orders with a cumulative shopping TodoList. Checked state is persisted on-device.
+- **Static Recipe Details**: Displays ingredients, utensils, and cooking steps in a clean, scrollable card list.
+- **Gesture Navigation & Exit Popup**:
+  - Global edge-swipe gesture (left-to-right) to go back to the previous screen.
+  - Native hardware back button support on Android.
+  - Custom-styled `AlertModal` confirmation when swiping back or pressing back from the root screen to prevent accidental exits.
+- **Makefile Automation**: A unified build tool supporting local compilations into Android APKs and iOS applications.
+
+### 🚀 Running the Mobile App
+1. **Navigate to Mobile Folder & Install Dependencies**:
+   ```bash
+   cd mobile
+   npm install
+   ```
+2. **Configure API Endpoint**:
+   Open `mobile/lib/api.ts` and set your API base URL (LAN IP or public domain):
+   ```typescript
+   let API_BASE_URL = 'http://192.168.x.x:3000';
+   ```
+3. **Start the Expo Development Server**:
+   ```bash
+   npm start
+   ```
+   Press `a` to run on Android Emulator, `i` to run on iOS Simulator, or scan the QR code using the Expo Go app on your physical device.
+
+### 🛠️ Local Native Compilation
+You can compile native release standalone packages locally using the provided [Makefile](mobile/Makefile):
+```bash
+# Build Android release APK
+make android
+
+# Build iOS release App (macOS & Xcode required)
+make ios
+
+# Build both platforms
+make all
+
+# Clean build folders
+make clean
+```
+
+---
+
 ## 🔒 Security & Git Best Practices
 All database files (`*.db`, `*.db-journal`, `*.db-wal`, `*.db-shm`) and `.env` local settings are ignored under `.gitignore` to prevent database or credentials leaks.

@@ -95,5 +95,55 @@ npm run dev -- -H 0.0.0.0
 
 ---
 
+## 📱 移动端 App (React Native & Expo)
+
+本项目在 `mobile/` 目录下配备了一个原生的移动端应用程序，基于 **React Native** 和 **Expo** 构建。它能与 Next.js Web 端后端进行实时数据联调与状态同步，并支持离线兜底。
+
+### 📱 移动端核心功能
+- **实时数据同步**：与后端 Web 服务 API 保持联调，实时同步家庭菜谱、今日点餐菜单和家庭厨房的成员变动。
+- **离线模式兜底**：在与 API 服务器断开连接时，自动激活离线流程。用户依然可以在本地创建或加入“离线版”家庭厨房（数据基于 `AsyncStorage` 缓存持久化），完整测试和演示家庭列表与成员视图。
+- **历史记录与点单详情**：支持查看家庭历史订单，自动合并生成今日买菜 TodoList 清单，并可在本地持久化记录勾选买菜状态。
+- **静态菜谱展示**：去除了复杂的待办和分量调节器，让进入的菜品菜谱实现简洁、直观的静态展示。
+- **手势导航与防误触退出**：
+  - 支持 iOS & Android 全局**屏幕左侧向右滑动返回**手势；
+  - 拦截 Android 物理返回键；
+  - 退出应用前会弹出自定义样式的 `AlertModal` 二次确认弹窗，防止用户误触退出。
+- **Makefile 自动化编译**：提供了一键式编译的自动化脚本，方便在本地直接构建生成 Android APK 安装包或 iOS 应用项目。
+
+### 🚀 运行移动端 App
+1. **进入 mobile 目录并安装依赖**：
+   ```bash
+   cd mobile
+   npm install
+   ```
+2. **配置后端 API 接口地址**：
+   打开 `mobile/lib/api.ts` 文件，将 `API_BASE_URL` 修改为您电脑的局域网 IP（用于本地联调）或公网服务器域名：
+   ```typescript
+   let API_BASE_URL = 'http://192.168.x.x:3000';
+   ```
+3. **启动 Expo 开发服务器**：
+   ```bash
+   npm start
+   ```
+   随后按终端提示输入 `a` 调起安卓模拟器，输入 `i` 调起 iOS 模拟器；或在手机上下载 Expo Go 客户端，直接扫描控制台上的二维码进行真机联调！
+
+### 🛠️ 本地原生打包编译
+您也可以直接使用提供的 [Makefile](mobile/Makefile) 工具在本地直接编译出 Release 安装包：
+```bash
+# 编译生成安卓 Android Release APK 包
+make android
+
+# 编译生成苹果 iOS Release 项目 (需 macOS 环境及安装 Xcode)
+make ios
+
+# 一键编译双端包
+make all
+
+# 清除生成的编译临时文件夹
+make clean
+```
+
+---
+
 ## 🔒 隐私与 Git 安全防范
 根据最新的 [`.gitignore`](file:///Users/hzhou/workspace/cook-bro/.gitignore) 规则，所有的 SQLite 数据库本地文件（`*.db` 及其缓存日志）和 `.env` 配置文件均已默认排除在 Git 追踪之外，确保本地开发测试的隐私数据不会被推送到代码库。
