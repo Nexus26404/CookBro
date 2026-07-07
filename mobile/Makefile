@@ -41,6 +41,17 @@ prebuild:
 	fi
 
 android: prebuild
+	@echo "Checking Android SDK path..."
+	@if [ ! -f "android/local.properties" ]; then \
+		SDK_DIR="$$HOME/Library/Android/sdk"; \
+		if [ -d "$$SDK_DIR" ]; then \
+			echo "Auto-detected Android SDK at $$SDK_DIR. Writing to android/local.properties..."; \
+			echo "sdk.dir=$$SDK_DIR" > android/local.properties; \
+		else \
+			echo "Warning: Default Android SDK location not found at $$SDK_DIR."; \
+			echo "You may need to create android/local.properties manually or export ANDROID_HOME."; \
+		fi; \
+	fi
 	@echo "Building Android Release APK..."
 	cd android && ./gradlew assembleRelease
 	@echo "Android Build Success!"
