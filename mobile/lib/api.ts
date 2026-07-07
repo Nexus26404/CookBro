@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Centralized API configuration. Users can dynamically update the IP address on screen during debugging!
-let API_BASE_URL = 'http://192.168.1.100:3000'; // Default fallback, replace with local LAN IP of host PC
+let API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.100:3000'; // Environment variable or fallback LAN IP
 
 export interface UserSession {
   uid: string;
