@@ -43,13 +43,18 @@ prebuild:
 android: prebuild
 	@echo "Checking Android SDK path..."
 	@if [ ! -f "android/local.properties" ]; then \
-		SDK_DIR="$$HOME/Library/Android/sdk"; \
-		if [ -d "$$SDK_DIR" ]; then \
-			echo "Auto-detected Android SDK at $$SDK_DIR. Writing to android/local.properties..."; \
-			echo "sdk.dir=$$SDK_DIR" > android/local.properties; \
+		if [ -n "$$ANDROID_HOME" ] && [ -d "$$ANDROID_HOME" ]; then \
+			echo "Using ANDROID_HOME environment variable: $$ANDROID_HOME. Writing to android/local.properties..."; \
+			echo "sdk.dir=$$ANDROID_HOME" > android/local.properties; \
 		else \
-			echo "Warning: Default Android SDK location not found at $$SDK_DIR."; \
-			echo "You may need to create android/local.properties manually or export ANDROID_HOME."; \
+			SDK_DIR="$$HOME/Library/Android/sdk"; \
+			if [ -d "$$SDK_DIR" ]; then \
+				echo "Auto-detected Android SDK at $$SDK_DIR. Writing to android/local.properties..."; \
+				echo "sdk.dir=$$SDK_DIR" > android/local.properties; \
+			else \
+				echo "Warning: Default Android SDK location not found at $$SDK_DIR."; \
+				echo "Please set ANDROID_HOME environment variable or create android/local.properties manually."; \
+			fi; \
 		fi; \
 	fi
 	@echo "Building Android Release APK..."
