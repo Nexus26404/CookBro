@@ -654,6 +654,11 @@ export default function App() {
                           <View style={styles.cardBody}>
                             <Text style={styles.cardName} numberOfLines={1}>{recipe.name}</Text>
                             <Text style={styles.cardCategory}>{recipe.category}</Text>
+                            {recipe.description ? (
+                              <Text style={styles.cardDesc} numberOfLines={1}>
+                                {recipe.description}
+                              </Text>
+                            ) : null}
                           </View>
 
                           <View style={styles.cardMeta}>
@@ -1020,7 +1025,7 @@ const styles = StyleSheet.create({
   },
   menuCard: {
     width: '48%',
-    height: 188,
+    height: 216,
     backgroundColor: theme.colors.bg.card,
     borderRadius: theme.radius.xl,
     marginBottom: theme.spacing[3],
@@ -1061,6 +1066,12 @@ const styles = StyleSheet.create({
     color: theme.colors.text.tertiary,
     fontWeight: '500',
   },
+  cardDesc: {
+    fontSize: 11,
+    color: theme.colors.text.secondary,
+    marginTop: 4,
+    lineHeight: 14,
+  },
   cardMeta: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1081,10 +1092,10 @@ const styles = StyleSheet.create({
   },
   checkBadge: {
     position: 'absolute',
-    top: -6,
-    right: -6,
-    width: 20,
-    height: 20,
+    top: 6,
+    right: 6,
+    width: 22,
+    height: 22,
     borderRadius: theme.radius.full,
     backgroundColor: theme.colors.primary[500],
     alignItems: 'center',
@@ -1097,10 +1108,10 @@ const styles = StyleSheet.create({
   },
   orderedBadge: {
     position: 'absolute',
-    top: -6,
-    right: -6,
-    width: 20,
-    height: 20,
+    top: 6,
+    right: 6,
+    width: 22,
+    height: 22,
     borderRadius: theme.radius.full,
     backgroundColor: '#22c55e',
     alignItems: 'center',
@@ -1278,7 +1289,7 @@ const styles = StyleSheet.create({
   },
   cardBadgeContainer: {
     position: 'absolute',
-    top: 6,
+    bottom: 6,
     right: 6,
   },
   cardContent: {
