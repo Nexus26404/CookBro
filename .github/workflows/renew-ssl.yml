@@ -1,0 +1,55 @@
+name: Renew SSL Certificate
+
+on:
+  schedule:
+    # Every 5 days at 02:00 UTC
+    - cron: '0 2 */5 * *'
+  workflow_dispatch:
+    # Allow manual trigger from GitHub Actions UI
+
+jobs:
+  renew-cert:
+    name: Renew Let's Encrypt Certificate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate Required Secrets
+        run: |
+          missing=()
+          [ -z "$SSH_PRIVATE_KEY" ] && missing+=("SSH_PRIVATE_KEY")
+          [ -z "$SERVER_HOST" ]     && missing+=("SERVER_HOST")
+          [ -z "$SERVER_USER" ]     && missing+=("SERVER_USER")
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "❌ Missing required secrets: ${missing[*]}"
+            exit 1
+          fi
+          echo "✅ All secrets present."
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SERVER_HOST:     ${{ secrets.SERVER_HOST }}
+          SERVER_USER:     ${{ secrets.SERVER_USER }}
+
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p "${SERVER_PORT:-22}" -H "$SERVER_HOST" >> ~/.ssh/known_hosts
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SERVER_HOST:     ${{ secrets.SERVER_HOST }}
+          SERVER_PORT:     ${{ secrets.SERVER_PORT }}
+
+      - name: Renew Certificate and Reload Nginx
+        run: |
+          ssh -p "${SERVER_PORT:-22}" "$SERVER_USER@$SERVER_HOST" "
+            set -e
+            echo '🔄 Running certbot renew...'
+            certbot renew --quiet --no-random-sleep-on-renew
+            echo '🔃 Reloading Nginx...'
+            systemctl reload nginx
+            echo '✅ Certificate renewal complete.'
+          "
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
