@@ -161,11 +161,15 @@ jobs:
       - name: Restart Application via SSH
         run: |
           ssh -p "${SERVER_PORT:-22}" "$SERVER_USER@$SERVER_HOST" "
+            set -e
             cd ${DEPLOY_PATH:-/var/www/cook-bro} &&
-            export PATH=\$PATH:/usr/bin:/usr/local/bin &&
             npm ci --omit=dev &&
-            npx prisma db push --accept-data-loss &&
-            pm2 reload cookbro || pm2 start npm --name 'cookbro' -- run start
+            node_modules/.bin/prisma db push --accept-data-loss &&
+            pm2 reload cookbro 2>/dev/null || \
+              PORT=${APP_PORT:-3000} pm2 start node_modules/.bin/next \
+                --name cookbro \
+                --interpreter none \
+                -- start --port ${APP_PORT:-3000}
           "
         env:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
