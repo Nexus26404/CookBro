@@ -78,7 +78,7 @@ jobs:
           NEXT_PUBLIC_AUTH_PROVIDER: local
 
   deploy:
-    name: Deploy to Vercel
+    name: Deploy to Self-Hosted Ubuntu Server
     needs: build
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
@@ -86,10 +86,46 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Deploy Production to Vercel
-        uses: amondnet/vercel-action@v20
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Build Web App
+        run: npm run build
+        env:
+          NEXT_PUBLIC_AUTH_PROVIDER: local
+
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p ${{ secrets.SERVER_PORT || '22' }} -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Sync Files to Server
+        run: |
+          rsync -avz -e "ssh -p ${{ secrets.SERVER_PORT || '22' }}" \
+            --exclude 'node_modules' \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude 'mobile' \
+            --exclude '*.db*' \
+            ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH || '/var/www/cook-bro' }}
+
+      - name: Restart Application via SSH
+        run: |
+          ssh -p ${{ secrets.SERVER_PORT || '22' }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "
+            cd ${{ secrets.DEPLOY_PATH || '/var/www/cook-bro' }} &&
+            export PATH=\$PATH:/usr/bin:/usr/local/bin &&
+            npm ci --omit=dev &&
+            npx prisma db push --accept-data-loss &&
+            pm2 reload cookbro || pm2 start npm --name 'cookbro' -- run start
+          "
