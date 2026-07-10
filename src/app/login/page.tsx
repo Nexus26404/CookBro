@@ -1,13 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui';
 import { Input } from '@/components/ui';
 import styles from './login.module.css';
 
-export default function LoginPage() {
+function LoginForm() {
   const { signInWithGoogle, signInWithEmail, signUpWithEmail, loading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -178,5 +178,18 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className={styles.loadingContainer}>
+        <span className={styles.loadingIcon}>🍳</span>
+        <p>加载中...</p>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }
