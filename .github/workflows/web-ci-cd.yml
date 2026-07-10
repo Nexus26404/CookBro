@@ -37,7 +37,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: 'npm'
 
       - name: Install Dependencies
@@ -63,7 +63,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: 'npm'
 
       - name: Install Dependencies
@@ -95,7 +95,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: 'npm'
 
       - name: Install Dependencies
@@ -115,29 +115,61 @@ jobs:
           NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
           NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
 
+      - name: Validate Required Deploy Secrets
+        run: |
+          missing=()
+          [ -z "$SSH_PRIVATE_KEY" ] && missing+=("SSH_PRIVATE_KEY")
+          [ -z "$SERVER_HOST" ] && missing+=("SERVER_HOST")
+          [ -z "$SERVER_USER" ] && missing+=("SERVER_USER")
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "❌ Missing required secrets: ${missing[*]}"
+            echo "Please configure them in: GitHub repo → Settings → Secrets and variables → Actions"
+            exit 1
+          fi
+          echo "✅ All required deploy secrets are present."
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+
       - name: Setup SSH Key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -p ${{ secrets.SERVER_PORT || '22' }} -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -p "${SERVER_PORT:-22}" -H "$SERVER_HOST" >> ~/.ssh/known_hosts
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
 
       - name: Sync Files to Server
         run: |
-          rsync -avz -e "ssh -p ${{ secrets.SERVER_PORT || '22' }}" \
+          rsync -avz -e "ssh -p ${SERVER_PORT:-22}" \
             --exclude 'node_modules' \
             --exclude '.git' \
             --exclude '.github' \
             --exclude 'mobile' \
             --exclude '*.db*' \
-            ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH || '/var/www/cook-bro' }}
+            ./ "$SERVER_USER@$SERVER_HOST:${DEPLOY_PATH:-/var/www/cook-bro}"
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
 
       - name: Restart Application via SSH
         run: |
-          ssh -p ${{ secrets.SERVER_PORT || '22' }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "
-            cd ${{ secrets.DEPLOY_PATH || '/var/www/cook-bro' }} &&
+          ssh -p "${SERVER_PORT:-22}" "$SERVER_USER@$SERVER_HOST" "
+            cd ${DEPLOY_PATH:-/var/www/cook-bro} &&
             export PATH=\$PATH:/usr/bin:/usr/local/bin &&
             npm ci --omit=dev &&
             npx prisma db push --accept-data-loss &&
             pm2 reload cookbro || pm2 start npm --name 'cookbro' -- run start
           "
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+
